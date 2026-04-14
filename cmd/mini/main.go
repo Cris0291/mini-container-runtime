@@ -5,10 +5,13 @@ import (
 )
 
 func main() {
-	lifeCycleCommand := os.Args[1:][0]
+	osArgs := os.Args[1:]
+	lifeCycleCommand := osArgs[0]
+	jsonConfig := os.Args[1]
+
 	switch lifeCycleCommand {
 	case "create":
-		create()
+		create(jsonConfig)
 	case "run":
 		run()
 	case "start":
