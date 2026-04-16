@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 type ContainerConfig struct {
@@ -53,10 +55,25 @@ type NetworkingConfig struct {
 	Bridge  string
 }
 
-func create(jsonConfig string) {
-	jsonConfigSlice := []byte(jsonConfig)
-	err := json.Unmarshal(jsonConfigSlice, &ContainerConfig)
+func Validate(config *ContainerConfig) {
+	if config.ID == "" {
+		fmt.Println("empty id in container creation")
+	}
+}
+
+func create(pathConfig string) {
+	path := filepath.Join(pathConfig, "config.json")
+
+	jsonConfig, err := os.ReadFile(path)
 	if err != nil {
-		fmt("error")
+		fmt.Println("read config error", err)
+	}
+
+	config := new(ContainerConfig)
+
+	e := json.Unmarshal(jsonConfig, &config)
+	Validate(config)
+	if e != nil {
+		fmt.Println("error")
 	}
 }
