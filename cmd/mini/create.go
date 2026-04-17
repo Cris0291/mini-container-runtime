@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type ContainerConfig struct {
@@ -28,6 +29,7 @@ type ProcessConfig struct {
 	Cwd  string
 	UID  string
 	GID  string
+	PID  string
 }
 
 type Mount struct {
@@ -45,7 +47,7 @@ type Namespace struct {
 
 type ResourceConfig struct {
 	MemoryLimit int64
-	CpuShares   int64
+	CPUShares   int64
 	PidsLimit   int64
 }
 
@@ -53,6 +55,15 @@ type NetworkingConfig struct {
 	IP      string
 	GateWay string
 	Bridge  string
+}
+
+type ContainerState struct {
+	ID      string
+	PID     string
+	Status  string
+	Bundle  string
+	Created time.Time
+	Config  ContainerConfig
 }
 
 func Validate(config *ContainerConfig) {
@@ -69,11 +80,24 @@ func create(pathConfig string) {
 		fmt.Println("read config error", err)
 	}
 
-	config := new(ContainerConfig)
+	var config ContainerConfig
 
 	e := json.Unmarshal(jsonConfig, &config)
-	Validate(config)
+	Validate(&config)
 	if e != nil {
 		fmt.Println("error")
+	}
+
+	// create process state
+	stateDir := filepath.Join("/run/mycontainer", config.ID)
+	er := os.MkdirAll(stateDir, 0o711)
+
+	state := ContainerState{
+		ID:      config.ID,
+		PID:     config.Process.PID,
+		Status:  "created",
+		Bundle:  pathConfig,
+		Created: time.Now().UTC(),
+		Config:  config,
 	}
 }
