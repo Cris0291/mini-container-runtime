@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,70 +10,76 @@ import (
 )
 
 type ContainerConfig struct {
-	ID       string
-	Hostname string
+	ID       string `json:"id"`
+	Hostname string `json:"hostname"`
 
-	Process ProcessConfig
-	Rootfs  string
-	Mounts  []Mount
+	Process ProcessConfig `json:"process_config"`
+	Rootfs  string        `json:"rootfs"`
+	Mounts  []Mount       `json:"mounts"`
 
-	Namespaces []Namespace
+	Namespaces []Namespace `json:"namespaces"`
 
-	Resources *ResourceConfig
+	Resources *ResourceConfig `json:"resources"`
 
-	Networking *NetworkingConfig
+	Networking *NetworkingConfig `json:"networking"`
 }
 
 type ProcessConfig struct {
-	Args []string
-	Env  []string
-	Cwd  string
-	UID  string
-	GID  string
-	PID  string
+	Args []string `json:"args"`
+	Env  []string `json:"env"`
+	Cwd  string   `json:"cwd"`
+	UID  int      `json:"uid"`
+	GID  int      `json:"gid"`
 }
 
 type Mount struct {
-	Source      string
-	Destination string
-	Type        string
-	Flags       int
-	Data        string
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+	Type        string `json:"type"`
+	Flags       int    `json:"flags"`
+	Data        string `json:"data"`
 }
 
 type Namespace struct {
-	Type string
-	Path string
+	Type string `json:"type"`
+	Path string `json:"path"`
 }
 
 type ResourceConfig struct {
-	MemoryLimit int64
-	CPUShares   int64
-	PidsLimit   int64
+	MemoryLimit int64 `json:"memory_limit"`
+	CPUShares   int64 `json:"cpu_shares"`
+	PidsLimit   int64 `json:"pids_limit"`
 }
 
 type NetworkingConfig struct {
-	IP      string
-	GateWay string
-	Bridge  string
+	IP      string `json:"ip"`
+	GateWay string `json:"gateway"`
+	Bridge  string `json:"bridge"`
 }
 
 type ContainerState struct {
 	ID      string
-	PID     string
+	PID     int
 	Status  string
 	Bundle  string
 	Created time.Time
 	Config  ContainerConfig
 }
 
-func Validate(config *ContainerConfig) {
+func Validate(config *ContainerConfig) error {
 	if config.ID == "" {
-		fmt.Println("empty id in container creation")
+		return errors.New("No id was provided in the json file")
 	}
+	if config.Hostname == "" {
+		return errors.New("NO hostname was provided i the json config file")
+	}
+	if config.Rootfs == "" {
+		return errors.New("No rootfs was provided in the json config file")
+	}
+	return nil
 }
 
-func create(pathConfig string) {
+func create(pathConfig string) error {
 	path := filepath.Join(pathConfig, "config.json")
 
 	jsonConfig, err := os.ReadFile(path)
