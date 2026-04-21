@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 )
@@ -97,14 +98,22 @@ func create(pathConfig string) error {
 
 	// create process state
 	stateDir := filepath.Join("/run/mycontainer", config.ID)
+
 	er := os.MkdirAll(stateDir, 0o711)
+
+	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
 
 	state := ContainerState{
 		ID:      config.ID,
-		PID:     config.Process.PID,
+		PID:     0,
 		Status:  "created",
 		Bundle:  pathConfig,
 		Created: time.Now().UTC(),
 		Config:  config,
+	}
+
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		// TODO: handle this error
 	}
 }
