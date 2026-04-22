@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"time"
+	"syscall"
 )
 
 type ContainerConfig struct {
@@ -23,6 +24,18 @@ type ContainerConfig struct {
 	Resources *ResourceConfig `json:"resources"`
 
 	Networking *NetworkingConfig `json:"networking"`
+}
+
+//TODO:rethink map definition on the create global
+
+namespaceRelation := map[string][int]{
+
+}
+
+func (c *ContainerConfig) CloneFlags() uintptr{
+	for namespace := range c.Namespaces {
+
+	}
 }
 
 type ProcessConfig struct {
@@ -85,7 +98,7 @@ func create(pathConfig string) error {
 
 	jsonConfig, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Println("read config error", err)
+		return err
 	}
 
 	var config ContainerConfig
@@ -93,13 +106,16 @@ func create(pathConfig string) error {
 	e := json.Unmarshal(jsonConfig, &config)
 	Validate(&config)
 	if e != nil {
-		fmt.Println("error")
+		return e
 	}
 
 	// create process state
 	stateDir := filepath.Join("/run/mycontainer", config.ID)
 
 	er := os.MkdirAll(stateDir, 0o711)
+	if er != nil {
+		return er
+	}
 
 	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
 
@@ -114,6 +130,11 @@ func create(pathConfig string) error {
 
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		// TODO: handle this error
+		return err
 	}
+
+	stateDirPath := filepath.Join(stateDir, "state.json")
+	os.WriteFile(stateDirPath, data, 0o644)
+
+	return nil
 }
