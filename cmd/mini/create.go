@@ -7,8 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
+	"strings"
 	"syscall"
+	"time"
 )
 
 type ContainerConfig struct {
@@ -26,16 +27,28 @@ type ContainerConfig struct {
 	Networking *NetworkingConfig `json:"networking"`
 }
 
-//TODO:rethink map definition on the create global
-
-namespaceRelation := map[string][int]{
-
+// TODO:rethink map definition on the create global
+var namespaceRelation = map[string]uintptr{
+	"pid":    syscall.CLONE_NEWPID,
+	"uts":    syscall.CLONE_NEWUTS,
+	"mount":  syscall.CLONE_NEWNS,
+	"net":    syscall.CLONE_NEWNET,
+	"ipc":    syscall.CLONE_NEWIPC,
+	"user":   syscall.CLONE_NEWUSER,
+	"cgroup": syscall.CLONE_NEWCGROUP,
 }
 
-func (c *ContainerConfig) CloneFlags() uintptr{
-	for namespace := range c.Namespaces {
-
+func (c *ContainerConfig) CloneFlags() uintptr {
+	var flags uintptr
+	for _, namespace := range c.Namespaces {
+		if strings.TrimSpace(namespace.Path) == "" {
+			value, ok := namespaceRelation[namespace.Type]
+			if ok {
+				flags |= value
+			}
+		}
 	}
+	return flags
 }
 
 type ProcessConfig struct {
