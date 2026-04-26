@@ -103,6 +103,10 @@ func Validate(config *ContainerConfig) error {
 	if config.Rootfs == "" {
 		return errors.New("No rootfs was provided in the json config file")
 	}
+	_, err := os.Stat(config.Rootfs)
+	if err != nil {
+		return errors.New("Rootfs path does not exist")
+	}
 	return nil
 }
 
@@ -120,6 +124,11 @@ func create(pathConfig string) error {
 	Validate(&config)
 	if e != nil {
 		return e
+	}
+
+	if !filepath.IsAbs(config.Rootfs) {
+		rootfsPath := filepath.Join(pathConfig, config.Rootfs)
+		config.Rootfs = rootfsPath
 	}
 
 	// create process state
