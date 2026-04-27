@@ -85,12 +85,12 @@ type NetworkingConfig struct {
 }
 
 type ContainerState struct {
-	ID      string
-	PID     int
-	Status  string
-	Bundle  string
-	Created time.Time
-	Config  ContainerConfig
+	ID      string          `json:"id"`
+	PID     int             `json:"pid"`
+	Status  string          `json:"status"`
+	Bundle  string          `json:"bundle"`
+	Created time.Time       `json:"created"`
+	Config  ContainerConfig `json:"container_config"`
 }
 
 func Validate(config *ContainerConfig) error {
@@ -120,10 +120,9 @@ func create(pathConfig string) error {
 
 	var config ContainerConfig
 
-	e := json.Unmarshal(jsonConfig, &config)
-	Validate(&config)
-	if e != nil {
-		return e
+	err = json.Unmarshal(jsonConfig, &config)
+	if err != nil {
+		return err
 	}
 
 	if !filepath.IsAbs(config.Rootfs) {
@@ -131,12 +130,17 @@ func create(pathConfig string) error {
 		config.Rootfs = rootfsPath
 	}
 
+	err = Validate(&config)
+	if err != nil {
+		return err
+	}
+
 	// create process state
 	stateDir := filepath.Join("/run/mycontainer", config.ID)
 
-	er := os.MkdirAll(stateDir, 0o711)
-	if er != nil {
-		return er
+	err = os.MkdirAll(stateDir, 0o711)
+	if err != nil {
+		return err
 	}
 
 	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
@@ -156,7 +160,10 @@ func create(pathConfig string) error {
 	}
 
 	stateDirPath := filepath.Join(stateDir, "state.json")
-	os.WriteFile(stateDirPath, data, 0o644)
+	err = os.WriteFile(stateDirPath, data, 0o644)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
