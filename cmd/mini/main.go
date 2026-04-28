@@ -8,13 +8,15 @@ import (
 func main() {
 	osArgs := os.Args[1:]
 	lifeCycleCommand := osArgs[0]
-	jsonConfig := osArgs[2]
+	jsonConfig := osArgs[1]
 
 	switch lifeCycleCommand {
 	case "create":
 		err := create(jsonConfig)
-		fmt.Errorf("create error: ", err)
-		os.Exit(1)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "create error %v\n", err)
+			return
+		}
 	case "run":
 		run()
 	case "start":

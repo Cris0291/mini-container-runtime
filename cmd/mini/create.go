@@ -144,6 +144,8 @@ func create(pathConfig string) error {
 	}
 
 	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
+	r, w, err := os.Pipe()
+	r.Close()
 
 	state := ContainerState{
 		ID:      config.ID,
