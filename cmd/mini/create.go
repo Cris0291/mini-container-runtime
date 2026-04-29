@@ -147,6 +147,12 @@ func create(pathConfig string) error {
 	r, w, err := os.Pipe()
 	r.Close()
 
+	cmd := exec.Command("proc/self/exe", "child")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
+
 	state := ContainerState{
 		ID:      config.ID,
 		PID:     0,
