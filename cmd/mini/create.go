@@ -165,9 +165,11 @@ func create(pathConfig string) error {
 		return err
 	}
 
+	r.Close()
+
 	state := ContainerState{
 		ID:      config.ID,
-		PID:     0,
+		PID:     cmd.Process.Pid,
 		Status:  "created",
 		Bundle:  pathConfig,
 		Created: time.Now().UTC(),
@@ -178,6 +180,9 @@ func create(pathConfig string) error {
 	if err != nil {
 		return err
 	}
+
+	_, err = w.Write(data)
+	w.Close()
 
 	stateDirPath := filepath.Join(stateDir, "state.json")
 	err = os.WriteFile(stateDirPath, data, 0o644)
