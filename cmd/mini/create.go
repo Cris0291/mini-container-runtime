@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var _MYCONTAINER_CONFIGPIPE = "3"
+var _MYCONTAINER_CONFIGPIPE = "_MYCONTAINER_CONFIGPIPE=3"
 
 type ContainerConfig struct {
 	ID       string `json:"id"`
@@ -148,15 +148,12 @@ func create(pathConfig string) error {
 	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
 	r, w, err := os.Pipe()
 
-	cmd := exec.Command("proc/self/exe", "child")
+	cmd := exec.Command("/proc/self/exe", "child")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
-
-	cmd.SysProcAttr.Cloneflags = config.CloneFlags()
-
-	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: config.CloneFlags()}
 
 	cmd.Env = append(cmd.Env, _MYCONTAINER_CONFIGPIPE)
 
@@ -181,7 +178,7 @@ func create(pathConfig string) error {
 		return err
 	}
 
-	_, err = w.Write(data)
+	_, err = w.Write(jsonConfig)
 	w.Close()
 
 	stateDirPath := filepath.Join(stateDir, "state.json")
