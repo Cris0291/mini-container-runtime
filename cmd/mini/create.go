@@ -178,7 +178,15 @@ func create(pathConfig string) error {
 		return err
 	}
 
-	_, err = w.Write(jsonConfig)
+	configData, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(configData)
+	if err != nil {
+		return err
+	}
+
 	w.Close()
 
 	stateDirPath := filepath.Join(stateDir, "state.json")
