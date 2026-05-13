@@ -24,6 +24,29 @@ func MountVirtualFileSystems(config *ContainerConfig) error {
 	return nil
 }
 
+func PivotRoot(config *ContainerConfig) error {
+	syscall.Mount(config.Rootfs, config.Rootfs, "", syscall.MS_BIND|syscall.MS_REC, "")
+
+	pivotDir := filepath.Join(config.Rootfs, ".pivot_root")
+	err := os.Mkdir(pivotDir, 0o711)
+	if err != nil {
+		return err
+	}
+
+	err = syscall.PivotRoot(config.Rootfs, "/")
+	if err != nil {
+		return err
+	}
+
+	os.Chdir("/")
+
+	syscall.Unmount("/.pivot_root", syscall.MNT_DETACH)
+
+	os.Remove("/.pivot_root")
+
+	return nil
+}
+
 func ChildInit() error {
 	envFileDescriptor := os.Getenv("_MYCONTAINER_CONFIGPIPE")
 	fd, err := strconv.Atoi(envFileDescriptor)
