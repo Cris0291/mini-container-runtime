@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
@@ -100,6 +101,16 @@ func ChildInit() error {
 	err = os.Chdir(config.Process.Cwd)
 	if err != nil {
 		return err
+	}
+
+	path, err := exec.LookPath(config.Process.Args[0])
+	if err != nil {
+		path = config.Process.Args[0]
+	}
+
+	err = syscall.Exec(path, config.Process.Args, config.Process.Env)
+	if err != nil {
+		panic("something terribly wrong happened")
 	}
 
 	return nil
