@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"internal/runtime/sys"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -146,6 +147,9 @@ func create(pathConfig string) error {
 
 	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
 	r, w, err := os.Pipe()
+	if err != nil {
+		return err
+	}
 
 	cmd := exec.Command("/proc/self/exe", "child")
 	cmd.Stdin = os.Stdin
@@ -155,6 +159,15 @@ func create(pathConfig string) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: config.CloneFlags()}
 
 	cmd.Env = append(cmd.Env, _MYCONTAINER_CONFIGPIPE)
+
+	execPath := filepath.Join(stateDir, "exec.fifo")
+	err = syscall.Mkfifo(execPath, 0o622)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(execPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
+	cmd.Env = append(cmd.Env, file)
 
 	err = cmd.Start()
 	if err != nil {
