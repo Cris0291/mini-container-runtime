@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"internal/runtime/sys"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,7 +11,10 @@ import (
 	"time"
 )
 
-var _MYCONTAINER_CONFIGPIPE = "_MYCONTAINER_CONFIGPIPE=3"
+var (
+	_MYCONTAINER_CONFIGPIPE = "_MYCONTAINER_CONFIGPIPE=3"
+	_MYCONTAINER_EXECFIFO   = "_MYCONTAINER_EXECFIFO=4"
+)
 
 type ContainerConfig struct {
 	ID       string `json:"id"`
@@ -167,7 +169,11 @@ func create(pathConfig string) error {
 	}
 
 	file, err := os.OpenFile(execPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
-	cmd.Env = append(cmd.Env, file)
+	if err != nil {
+		return err
+	}
+	cmd.ExtraFiles = append(cmd.ExtraFiles, file)
+	cmd.Env = append(cmd.Env, _MYCONTAINER_EXECFIFO)
 
 	err = cmd.Start()
 	if err != nil {

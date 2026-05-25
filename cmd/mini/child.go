@@ -103,6 +103,16 @@ func ChildInit() error {
 		return err
 	}
 
+	namedPipeFileDescriptor := os.Getenv("_MYCONTAINER_EXECFIFO=4")
+	npfd, err := strconv.Atoi(namedPipeFileDescriptor)
+	if err != nil {
+		return err
+	}
+
+	file = os.NewFile(uintptr(npfd), "exec.fifo")
+	file.Write([]byte("0"))
+	file.Close()
+
 	path, err := exec.LookPath(config.Process.Args[0])
 	if err != nil {
 		path = config.Process.Args[0]
