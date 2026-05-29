@@ -5,10 +5,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
-func start() error {
-	containerID := os.Args[0]
+func start(containerID string) error {
 	containerPath := filepath.Join("/run/mycontainer", containerID)
 	statePath := filepath.Join(containerPath, "state.json")
 
@@ -18,11 +18,17 @@ func start() error {
 	}
 
 	var state ContainerState
-	json.Unmarshal(data, &state)
+	err = json.Unmarshal(data, &state)
+	if err != nil {
+		return err
+	}
 
 	if state.Status != "created" {
 		return errors.New("something unexpeted happened status different from created")
 	}
+
+	childPID := strconv.Itoa(state.PID)
+	_, err = os.Stat("/proc/" + childPID)
 
 	execFifoPath := filepath.Join(containerPath, "exec.fifo")
 	file, err := os.OpenFile(execFifoPath, os.O_RDONLY, 0)
@@ -31,6 +37,10 @@ func start() error {
 	}
 
 	defer file.Close()
+
+	if err != nil {
+		return err
+	}
 
 	buff := make([]byte, 1)
 	_, err = file.Read(buff)
