@@ -29,6 +29,9 @@ func start(containerID string) error {
 
 	childPID := strconv.Itoa(state.PID)
 	_, err = os.Stat("/proc/" + childPID)
+	if err != nil {
+		return err
+	}
 
 	execFifoPath := filepath.Join(containerPath, "exec.fifo")
 	file, err := os.OpenFile(execFifoPath, os.O_RDONLY, 0)
