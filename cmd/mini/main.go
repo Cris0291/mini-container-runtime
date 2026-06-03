@@ -7,7 +7,8 @@ import (
 
 func main() {
 	if len(os.Args) <= 1 {
-		panic("too few arguments")
+		fmt.Fprintf(os.Stderr, "too few arguments")
+		os.Exit(1)
 	}
 
 	lifeCycleCommand := os.Args[1]
@@ -24,10 +25,20 @@ func main() {
 		run()
 	case "start":
 		containerID := os.Args[2]
-		start(containerID)
+		err := start(containerID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "start error %v\n", err)
+			return
+		}
 	case "init":
 		runInit()
 	case "child":
-		ChildInit()
+		err := ChildInit()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "child error %v\n", err)
+			return
+		}
+	case "delete":
+		delete()
 	}
 }
