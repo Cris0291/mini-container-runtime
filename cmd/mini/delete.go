@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,9 +23,9 @@ func delete(containerID string) error {
 		return err
 	}
 
+	childPID := strconv.Itoa(state.PID)
 	// i need to check the atomicity of this since the state might change between check
 	if state.Status == "stopped" {
-		childPID := strconv.Itoa(state.PID)
 		_, err = os.Stat("/proc/" + childPID)
 		if err == nil {
 			return errors.New("process is currently running stop it first")
@@ -35,8 +34,16 @@ func delete(containerID string) error {
 		if err != nil {
 			return err
 		}
-	} else if state.Status == "delete" {
-		return errors.New("process ")
+	} else {
+		_, err = os.Stat("/proc/" + childPID)
+		if err != nil {
+			err = os.RemoveAll(containerPath)
+			if err != nil {
+				return err
+			}
+		} else {
+			return errors.New("process is currently running stop it first")
+		}
 	}
 
 	return nil
