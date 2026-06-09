@@ -147,6 +147,15 @@ func create(pathConfig string) error {
 		return err
 	}
 
+	lockFilePath := filepath.Join(stateDir, "lock")
+
+	fileLock, err := os.OpenFile(lockFilePath, syscall.O_RDWR|syscall.O_CREAT, 0o666)
+	defer fileLock.Close()
+
+	if err != nil {
+		return err
+	}
+
 	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
 	r, w, err := os.Pipe()
 	if err != nil {
