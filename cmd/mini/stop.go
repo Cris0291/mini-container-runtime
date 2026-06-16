@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"syscall"
 )
 
@@ -31,5 +32,20 @@ func stop(containerID string) error {
 	err = json.Unmarshal(file, &state)
 	if err != nil {
 		return err
+	}
+
+	childPID := strconv.Itoa(state.PID)
+	_, err = os.Stat("/proc/" + childPID)
+	if err != nil {
+		state.Status = "stopped"
+		data, err := json.Marshal(state)
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(statePath, data, 0o644)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 }
