@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -24,21 +25,22 @@ func writeStopState(state *ContainerState, statePath *string) error {
 
 func terminateProcess(pid int, timeout time.Duration, state *ContainerState, statePath *string) error {
 	p, err := os.FindProcess(pid)
-	if err != nil {
-		// Process was killed in between just save the stopped state
-		err = writeStopState(state, statePath)
-		return err
-	}
 
 	err = p.Signal(syscall.SIGTERM)
 	if err != nil {
 		// Process was already kill
-		writeStopState(state, statePath)
+		return nil
 	}
-
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
+		err = syscall.Kill(pid, 0)
+		if err != nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
+
+	return p.Kill()
 }
 
 func stop(containerID string) error {
@@ -52,6 +54,7 @@ func stop(containerID string) error {
 	}
 
 	err = syscall.Flock(int(fileLock.Fd()), syscall.LOCK_EX)
+	defer fileLock.Close()
 	if err != nil {
 		return err
 	}
@@ -69,8 +72,15 @@ func stop(containerID string) error {
 
 	childPID := strconv.Itoa(state.PID)
 	_, err = os.Stat("/proc/" + childPID)
-	if err != nil {
-		err = WriteStopState(&state, &statePath)
-		return err
+	if err == nil {
+		err = terminateProcess(state.PID, 10*time.Second, &state, &statePath)
+		if err != nil {
+			// if we reach this path means that p.kill went worng which should not happen
+			panic("process could not be killed os has failed us")
+		}
 	}
+	err = writeStopState(&state, &statePath)
+	// here is the problem if i return the error here it means that the process is dead
+	// but i could not write the state so the semantics are weird operation was successful but the result is missleading
+	return fmt.Errorf("process stopped but failed to persist teh state: %w", err)
 }
