@@ -23,7 +23,7 @@ func writeStopState(state *ContainerState, statePath *string) error {
 	return nil
 }
 
-func terminateProcess(pid int, timeout time.Duration, state *ContainerState, statePath *string) error {
+func terminateProcess(pid int, timeout time.Duration) error {
 	p, err := os.FindProcess(pid)
 
 	err = p.Signal(syscall.SIGTERM)
@@ -54,10 +54,10 @@ func stop(containerID string) error {
 	}
 
 	err = syscall.Flock(int(fileLock.Fd()), syscall.LOCK_EX)
-	defer fileLock.Close()
 	if err != nil {
 		return err
 	}
+	defer fileLock.Close()
 
 	file, err := os.ReadFile(statePath)
 	if err != nil {
@@ -70,10 +70,14 @@ func stop(containerID string) error {
 		return err
 	}
 
+	if state.Status == "stopped" {
+		return nil
+	}
+
 	childPID := strconv.Itoa(state.PID)
 	_, err = os.Stat("/proc/" + childPID)
 	if err == nil {
-		err = terminateProcess(state.PID, 10*time.Second, &state, &statePath)
+		err = terminateProcess(state.PID, 10*time.Second)
 		if err != nil {
 			// if we reach this path means that p.kill went worng which should not happen
 			panic("process could not be killed os has failed us")
@@ -82,5 +86,8 @@ func stop(containerID string) error {
 	err = writeStopState(&state, &statePath)
 	// here is the problem if i return the error here it means that the process is dead
 	// but i could not write the state so the semantics are weird operation was successful but the result is missleading
-	return fmt.Errorf("process stopped but failed to persist teh state: %w", err)
+	if err != nil {
+		return fmt.Errorf("process stopped but failed to persist the state: %w", err)
+	}
+	return nil
 }
