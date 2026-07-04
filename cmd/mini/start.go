@@ -6,11 +6,25 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall"
 )
 
 func start(containerID string) error {
 	containerPath := filepath.Join("/run/mycontainer", containerID)
 	statePath := filepath.Join(containerPath, "state.json")
+	lockPath := filepath.Join(containerPath, "lock")
+
+	fileLock, err := os.OpenFile(lockPath, syscall.O_RDWR, 0)
+	if err != nil {
+		return err
+	}
+
+	err = syscall.Flock(int(fileLock.Fd()), syscall.LOCK_EX)
+	if err != nil {
+		return err
+	}
+
+	defer fileLock.Close()
 
 	data, err := os.ReadFile(statePath)
 	if err != nil {

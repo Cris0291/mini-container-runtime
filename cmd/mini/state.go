@@ -2,32 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
+	"strconv"
 	"syscall"
 )
-
-func decompose(data interface{}){
-  typ := reflect.TypeOf(data) 
-	val := reflect.ValueOf(data)
-
-	if(val.Kind() == reflect.Struct){
-		for i := 0; i < val.NumField(); i++{
-			fieldVal := val.Field(i)
-			fieldType := typ.Field(i)
-
-			if(fieldVal.Kind() == reflect.Struct){
-				decompose(fieldVal.Interface())
-			}
-			if(fieldVal.Kind() == reflect.Slice){
-				for(j := 0; j < fieldVal.Len(); j++){
-					element := fieldVal.
-				}
-			}
-		}
-	}
-}
 
 func state(containerID string) error {
 	containerPath := filepath.Join("/run/mycontainer", containerID)
@@ -35,25 +15,41 @@ func state(containerID string) error {
 	lockPath := filepath.Join(containerPath, "lock")
 
 	fileLock, err := os.OpenFile(lockPath, syscall.O_RDWR, 0)
-	if(err != nil){
+	if err != nil {
 		return err
 	}
 
-	err = syscall.Flock(int(fileLock.Fd()), syscall.LOCK_EX)
-	if(err != nil){
+	err = syscall.Flock(int(fileLock.Fd()), syscall.LOCK_SH)
+	if err != nil {
 		return err
 	}
 	defer fileLock.Close()
 
 	file, err := os.ReadFile(statePath)
-	if(err != nil){
+	if err != nil {
 		return err
 	}
 
 	var state ContainerState
 	err = json.Unmarshal(file, &state)
-	if(err != nil){
+	if err != nil {
 		return err
 	}
-	
+
+	childPID := strconv.Itoa(state.PID)
+	_, err = os.Stat("/proc/" + childPID)
+	if err != nil {
+		if state.Status == "running" {
+			fmt.Println("there is a difference in status process does not exist yet is status is: running")
+		} else {
+			fmt.Println("process does not exist and its stauts is : " + state.Status)
+		}
+		state.Status = "stopped"
+	}
+	res, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(res))
+	return nil
 }
