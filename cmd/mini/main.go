@@ -39,6 +39,22 @@ func main() {
 			return
 		}
 	case "delete":
-		delete()
+		containerID := os.Args[2]
+		err := delete(containerID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "delete error %v\n", err)
+		}
+	case "stop":
+		containerID := os.Args[2]
+		err := stop(containerID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "stop error %v\n", err)
+		}
+	case "state":
+		containerID := os.Args[2]
+		err := state(containerID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "state error %v\n", err)
+		}
 	}
 }
