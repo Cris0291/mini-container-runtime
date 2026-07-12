@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func main() {
@@ -16,13 +17,19 @@ func main() {
 	switch lifeCycleCommand {
 	case "create":
 		jsonConfig := os.Args[2]
-		err := create(jsonConfig)
+		_, err := create(jsonConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "create error %v\n", err)
 			return
 		}
+		time.Sleep(30 * time.Second)
 	case "run":
-		run()
+		jsonConfig := os.Args[2]
+		containerID := os.Args[3]
+		err := run(jsonConfig, containerID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "run error %v\n", err)
+		}
 	case "start":
 		containerID := os.Args[2]
 		err := start(containerID)

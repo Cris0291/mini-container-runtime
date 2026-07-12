@@ -114,19 +114,19 @@ func Validate(config *ContainerConfig) error {
 	return nil
 }
 
-func create(pathConfig string) error {
+func create(pathConfig string) (*exec.Cmd, error) {
 	path := filepath.Join(pathConfig, "config.json")
 
 	jsonConfig, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var config ContainerConfig
 
 	err = json.Unmarshal(jsonConfig, &config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !filepath.IsAbs(config.Rootfs) {
@@ -136,7 +136,7 @@ func create(pathConfig string) error {
 
 	err = Validate(&config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create process state
@@ -144,22 +144,22 @@ func create(pathConfig string) error {
 
 	err = os.MkdirAll(stateDir, 0o711)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	lockFilePath := filepath.Join(stateDir, "lock")
 
 	fileLock, err := os.OpenFile(lockFilePath, syscall.O_RDWR|syscall.O_CREAT, 0o666)
-	defer fileLock.Close()
-
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	defer fileLock.Close()
 
 	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
 	r, w, err := os.Pipe()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cmd := exec.Command("/proc/self/exe", "child")
@@ -174,19 +174,20 @@ func create(pathConfig string) error {
 	execPath := filepath.Join(stateDir, "exec.fifo")
 	err = syscall.Mkfifo(execPath, 0o622)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	file, err := os.OpenFile(execPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cmd.ExtraFiles = append(cmd.ExtraFiles, file)
 	cmd.Env = append(cmd.Env, _MYCONTAINER_EXECFIFO)
 
 	err = cmd.Start()
+	file.Close()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	r.Close()
@@ -202,16 +203,16 @@ func create(pathConfig string) error {
 
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	configData, err := json.Marshal(config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, err = w.Write(configData)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	w.Close()
@@ -219,8 +220,8 @@ func create(pathConfig string) error {
 	stateDirPath := filepath.Join(stateDir, "state.json")
 	err = os.WriteFile(stateDirPath, data, 0o644)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return cmd, nil
 }
