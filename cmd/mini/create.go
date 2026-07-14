@@ -14,6 +14,7 @@ import (
 var (
 	_MYCONTAINER_CONFIGPIPE = "_MYCONTAINER_CONFIGPIPE=3"
 	_MYCONTAINER_EXECFIFO   = "_MYCONTAINER_EXECFIFO=4"
+	_MYCONTAINER_CONFIGID   = "_MYCONTAINER_CONFIGID="
 )
 
 type ContainerConfig struct {
@@ -167,7 +168,7 @@ func create(pathConfig string) (*exec.Cmd, error) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: config.CloneFlags()}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: config.CloneFlags(), Setsid: true}
 
 	cmd.Env = append(cmd.Env, _MYCONTAINER_CONFIGPIPE)
 
@@ -177,15 +178,11 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	file, err := os.OpenFile(execPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
-	if err != nil {
-		return nil, err
-	}
-	cmd.ExtraFiles = append(cmd.ExtraFiles, file)
+	cmd.Env = append(cmd.Env, _MYCONTAINER_CONFIGID+config.ID)
+
 	cmd.Env = append(cmd.Env, _MYCONTAINER_EXECFIFO)
 
 	err = cmd.Start()
-	file.Close()
 	if err != nil {
 		return nil, err
 	}

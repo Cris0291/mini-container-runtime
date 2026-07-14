@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 )
 
 func main() {
@@ -22,7 +21,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "create error %v\n", err)
 			return
 		}
-		time.Sleep(30 * time.Second)
 	case "run":
 		jsonConfig := os.Args[2]
 		containerID := os.Args[3]

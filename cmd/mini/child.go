@@ -63,7 +63,10 @@ func PivotRoot(config *ContainerConfig) error {
 }
 
 func ChildInit() error {
-	fmt.Println(os.Stderr, "child started")
+	fmt.Fprintf(os.Stderr, "child started")
+	containerID := os.Getenv("_MYCONTAINER_CONFIGID")
+	containerPath := filepath.Join("/run/mycontainer", containerID)
+	execFifoPath := filepath.Join(containerPath, "exec.fifo")
 	envFileDescriptor := os.Getenv("_MYCONTAINER_CONFIGPIPE")
 	fd, err := strconv.Atoi(envFileDescriptor)
 	if err != nil {
@@ -105,6 +108,12 @@ func ChildInit() error {
 
 	fmt.Println("after mount")
 
+	fileExecFifo, err := os.OpenFile(execFifoPath, syscall.O_WRONLY|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return fmt.Errorf("exec fifo step: %w", err)
+	}
+	fmt.Println("after file creation write only exec fifo")
+
 	err = PivotRoot(&config)
 	if err != nil {
 		return fmt.Errorf("pivot root: %w", err)
@@ -118,17 +127,7 @@ func ChildInit() error {
 
 	fmt.Println("after chdir")
 
-	namedPipeFileDescriptor := os.Getenv("_MYCONTAINER_EXECFIFO")
-	npfd, err := strconv.Atoi(namedPipeFileDescriptor)
-	if err != nil {
-		return fmt.Errorf("atoi exec fifo step: %w", err)
-	}
-
-	fmt.Println("after atoi exec fifo")
-
-	file = os.NewFile(uintptr(npfd), "exec.fifo")
-	fmt.Println("after new file exec fifo")
-	_, err = file.Write([]byte("0"))
+	_, err = fileExecFifo.Write([]byte("0"))
 	if err != nil {
 		return fmt.Errorf("file exec fifo step: %w", err)
 	}
