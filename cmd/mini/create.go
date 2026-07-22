@@ -116,6 +116,9 @@ func Validate(config *ContainerConfig) error {
 }
 
 func create(pathConfig string) (*exec.Cmd, error) {
+	// this path should not be in the json config
+	// it should be dynamically created the mycontainer part is temporary
+	cgroupPath := "/sys/fs/cgroup/mycontainer"
 	path := filepath.Join(pathConfig, "config.json")
 
 	jsonConfig, err := os.ReadFile(path)
@@ -140,6 +143,12 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
+	// after validating the pid the full group path is created
+	cgroupDir := filepath.Join(cgroupPath, config.ID)
+	err = os.Mkdir(cgroupDir, 0o700)
+	if err != nil {
+		return nil, err
+	}
 	// create process state
 	stateDir := filepath.Join("/run/mycontainer", config.ID)
 
