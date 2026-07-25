@@ -98,7 +98,7 @@ type ContainerState struct {
 	Config  ContainerConfig `json:"container_config"`
 }
 
-func Validate(config *ContainerConfig) error {
+func validate(config *ContainerConfig) error {
 	if config.ID == "" {
 		return errors.New("No id was provided in the json file")
 	}
@@ -113,6 +113,12 @@ func Validate(config *ContainerConfig) error {
 		return errors.New("Rootfs path does not exist")
 	}
 	return nil
+}
+
+func handleResourceConfig(config *ResourceConfig) (int64, int64, int64) {
+	// handle default resource config
+	if config == nil {
+	}
 }
 
 func create(pathConfig string) (*exec.Cmd, error) {
@@ -138,7 +144,7 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		config.Rootfs = rootfsPath
 	}
 
-	err = Validate(&config)
+	err = validate(&config)
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +155,7 @@ func create(pathConfig string) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// create process state
 	stateDir := filepath.Join("/run/mycontainer", config.ID)
 
