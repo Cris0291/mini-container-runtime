@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -98,6 +99,32 @@ type ContainerState struct {
 	Config  ContainerConfig `json:"container_config"`
 }
 
+type ResourceConfigResult struct {
+	MemoryLimit string
+	PidLimit    string
+	CpuQuota    string
+	CpuPeriod   string
+}
+
+const (
+	PID_DEFAULT     = "1024"
+	PID_MIN_DEFAULT = 16
+	PID_MAX_DEFUALT = 10000000
+)
+
+const (
+	MEMORY_DEFAULT = "max"
+	MEMORY_MIN     = 16
+	MEMORY_MAX     = 1048576
+)
+
+const (
+	CPU_MIN_PERCENTAGE = 20
+	CPU_MAX_PERCENTAGE = 100
+	CPU_QUOTA_DEFAULT  = "50000"
+	CPU_PERIOD_DEFAULT = "100000"
+)
+
 func validate(config *ContainerConfig) error {
 	if config.ID == "" {
 		return errors.New("No id was provided in the json file")
@@ -115,9 +142,24 @@ func validate(config *ContainerConfig) error {
 	return nil
 }
 
-func handleResourceConfig(config *ResourceConfig) (int64, int64, int64) {
+func validateResourceConfig(config *ResourceConfig, resource *ResourceConfigResult) {
+	if config.MemoryLimit <= MEMORY_MIN || config.MemoryLimit >= MEMORY_MAX {
+		resource.MemoryLimit = MEMORY_DEFAULT
+	} else {
+		memory := strconv.Itoa(int(config.MemoryLimit))
+		resource.MemoryLimit = memory
+	}
+}
+
+func handleResourceConfig(config *ResourceConfig) ResourceConfigResult {
+	resource := ResourceConfigResult{}
 	// handle default resource config
 	if config == nil {
+		resource.MemoryLimit = MEMORY_DEFAULT
+		resource.PidLimit = PID_DEFAULT
+		resource.CpuQuota = CPU_QUOTA_DEFAULT
+		resource.CpuPeriod = CPU_PERIOD_DEFAULT
+		return resource
 	}
 }
 
