@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -99,7 +100,7 @@ type ContainerState struct {
 	Config  ContainerConfig `json:"container_config"`
 }
 
-type ResourceConfigResult struct {
+type CgroupConfig struct {
 	MemoryLimit string
 	PidLimit    string
 	CpuQuota    string
@@ -107,22 +108,22 @@ type ResourceConfigResult struct {
 }
 
 const (
-	PID_DEFAULT     = "1024"
-	PID_MIN_DEFAULT = 16
-	PID_MAX_DEFUALT = 10000000
+	PidDefault    = 1024
+	PidMinDefault = 16
+	PidMaxDefault = 10000000
 )
 
 const (
-	MEMORY_DEFAULT = "max"
-	MEMORY_MIN     = 16
-	MEMORY_MAX     = 1048576
+	MemoryDefaultMib = math.MaxInt
+	MemoryMinMib     = 16
+	MemoryMaxMib     = 1048576
 )
 
 const (
-	CPU_MIN_PERCENTAGE = 20
-	CPU_MAX_PERCENTAGE = 100
-	CPU_QUOTA_DEFAULT  = "50000"
-	CPU_PERIOD_DEFAULT = "100000"
+	CpuMinPercentage = 20
+	CpuMaxPercentage = 100
+	CpuQuotaDefault  = 50000
+	CpuPeriodDefault = 100000
 )
 
 func validate(config *ContainerConfig) error {
@@ -142,25 +143,50 @@ func validate(config *ContainerConfig) error {
 	return nil
 }
 
-func validateResourceConfig(config *ResourceConfig, resource *ResourceConfigResult) {
-	if config.MemoryLimit <= MEMORY_MIN || config.MemoryLimit >= MEMORY_MAX {
-		resource.MemoryLimit = MEMORY_DEFAULT
-	} else {
-		memory := strconv.Itoa(int(config.MemoryLimit))
-		resource.MemoryLimit = memory
+func normalizeCgroup(config *ResourceConfig) {
+}
+
+func normalizeMemory(memoryConfig int64) int64 {
+	switch {
+	case memoryConfig > MemoryMaxMib:
+		memoryConfig = MemoryDefaultMib
+	case memoryConfig < MemoryMinMib:
+		memoryConfig = MemoryDefaultMib
 	}
+
+	return memoryConfig
+}
+
+func normalizePid(pid int64) int64 {
+	switch {
+	case pid > PidMaxDefault:
+		pid = PidDefault
+	case pid < PidMinDefault:
+		pid = PidDefault
+	}
+
+	return pid
+}
+
+func normalizeCpu(cpu int64) (int64, int64) {
+	var cpuQuota, cpuPercentage int64
+	cpuPercentage = CpuPeriodDefault
+
+	switch {
+	case cpu > CpuMaxPercentage:
+		cpuQuota = CpuQuotaDefault
+	case cpu < CpuMinPercentage:
+		cpuQuota = CpuQuotaDefault
+	}
+
+	if cpuQuota == 0 {
+		cpuQuota = (cpu / 100.0) * CpuPeriodDefault
+	}
+
+	return cpuQuota, cpuPercentage
 }
 
 func handleResourceConfig(config *ResourceConfig) ResourceConfigResult {
-	resource := ResourceConfigResult{}
-	// handle default resource config
-	if config == nil {
-		resource.MemoryLimit = MEMORY_DEFAULT
-		resource.PidLimit = PID_DEFAULT
-		resource.CpuQuota = CPU_QUOTA_DEFAULT
-		resource.CpuPeriod = CPU_PERIOD_DEFAULT
-		return resource
-	}
 }
 
 func create(pathConfig string) (*exec.Cmd, error) {
