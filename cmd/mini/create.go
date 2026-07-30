@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"os/exec"
@@ -101,10 +102,10 @@ type ContainerState struct {
 }
 
 type CgroupConfig struct {
-	MemoryLimit string
-	PidLimit    string
-	CpuQuota    string
-	CpuPeriod   string
+	MemoryLimit int64
+	PidLimit    int64
+	CpuQuota    int64
+	CpuPeriod   int64
 }
 
 const (
@@ -143,7 +144,48 @@ func validate(config *ContainerConfig) error {
 	return nil
 }
 
-func normalizeCgroup(config *ResourceConfig) {
+func writeCgroups(config *CgroupConfig, path *string) error {
+	var memory string
+	if config.MemoryLimit == MemoryDefaultMib {
+		memory = "max"
+	} else {
+		memBytes := uint64(config.MemoryLimit * 1024 * 1204)
+		memory = strconv.FormatUint(memBytes, 10)
+	}
+	err := os.WriteFile(filepath.Join(*path, "memory.max"), []byte(memory), 0o644)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(filepath.Join(*path, "pids.max"), []byte(strconv.FormatInt(config.PidLimit, 10)), 0o644)
+	if err != nil {
+		return err
+	}
+
+	cpumax := fmt.Sprintf("%d %d", config.CpuQuota, config.CpuPeriod)
+	err = os.WriteFile(filepath.Join(*path, "cpu.max"), []byte(cpumax), 0o644)
+	return err
+}
+
+func normalizeCgroup(config *ResourceConfig) CgroupConfig {
+	cgroup := CgroupConfig{
+		MemoryLimit: MemoryDefaultMib,
+		PidLimit:    PidDefault,
+		CpuQuota:    CpuQuotaDefault,
+		CpuPeriod:   CpuPeriodDefault,
+	}
+	if config == nil {
+		return cgroup
+	}
+
+	quota, period := normalizeCpu(config.CPUShares)
+
+	cgroup.MemoryLimit = normalizeMemory(config.MemoryLimit)
+	cgroup.PidLimit = normalizePid(config.PidsLimit)
+	cgroup.CpuQuota = quota
+	cgroup.CpuPeriod = period
+
+	return cgroup
 }
 
 func normalizeMemory(memoryConfig int64) int64 {
@@ -186,9 +228,6 @@ func normalizeCpu(cpu int64) (int64, int64) {
 	return cpuQuota, cpuPercentage
 }
 
-func handleResourceConfig(config *ResourceConfig) ResourceConfigResult {
-}
-
 func create(pathConfig string) (*exec.Cmd, error) {
 	// this path should not be in the json config
 	// it should be dynamically created the mycontainer part is temporary
@@ -220,6 +259,12 @@ func create(pathConfig string) (*exec.Cmd, error) {
 	// after validating the pid the full group path is created
 	cgroupDir := filepath.Join(cgroupPath, config.ID)
 	err = os.Mkdir(cgroupDir, 0o700)
+	if err != nil {
+		return nil, err
+	}
+
+	cgroupConfig := normalizeCgroup(config.Resources)
+	err = writeCgroups(&cgroupConfig, &cgroupDir)
 	if err != nil {
 		return nil, err
 	}
