@@ -167,6 +167,12 @@ func writeCgroups(config *CgroupConfig, path *string) error {
 	return err
 }
 
+func writePidToCgroups(pid int, path *string) error {
+	strPid := strconv.Itoa(pid)
+	err := os.WriteFile(*path, []byte(strPid), 0o644)
+	return err
+}
+
 func normalizeCgroup(config *ResourceConfig) CgroupConfig {
 	cgroup := CgroupConfig{
 		MemoryLimit: MemoryDefaultMib,
@@ -178,7 +184,7 @@ func normalizeCgroup(config *ResourceConfig) CgroupConfig {
 		return cgroup
 	}
 
-	quota, period := normalizeCpu(config.CPUShares)
+	quota, period := normalizeCPU(config.CPUShares)
 
 	cgroup.MemoryLimit = normalizeMemory(config.MemoryLimit)
 	cgroup.PidLimit = normalizePid(config.PidsLimit)
@@ -210,7 +216,7 @@ func normalizePid(pid int64) int64 {
 	return pid
 }
 
-func normalizeCpu(cpu int64) (int64, int64) {
+func normalizeCPU(cpu int64) (int64, int64) {
 	var cpuQuota, cpuPercentage int64
 	cpuPercentage = CpuPeriodDefault
 
@@ -269,6 +275,11 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
+	err = writeCgroups(&cgroupConfig, &cgroupDir)
+	if err != nil {
+		return nil, err
+	}
+
 	// create process state
 	stateDir := filepath.Join("/run/mycontainer", config.ID)
 
@@ -312,6 +323,11 @@ func create(pathConfig string) (*exec.Cmd, error) {
 	cmd.Env = append(cmd.Env, _MYCONTAINER_EXECFIFO)
 
 	err = cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	err = writePidToCgroups(cmd.Process.Pid, &cgroupDir)
 	if err != nil {
 		return nil, err
 	}
