@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"internal/runtime/cgroup"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -47,44 +46,59 @@ func readCgroupPids(cgroupPath *string) ([]int, error) {
 }
 
 func signalCgroups(cgroupPath *string, signal syscall.Signal) error {
-	pids, err := readCgroupPids(cgroupPath * string)
-	if err != nil {
-		return err
-	}
-
-	for _, pid := range pids {
-		err = syscall.Kill(pid, signal)
-	}
-}
-
-func terminateProcess(cgroupPath *string, timeout time.Duration) error {
 	pids, err := readCgroupPids(cgroupPath)
 	if err != nil {
 		return err
 	}
 
 	for _, pid := range pids {
+		err = syscall.Kill(pid, signal)
+		if err != nil && err != syscall.ESRCH {
+			return err
+		}
 	}
-	p, err := os.FindProcess(pid)
 
-	err = p.Signal(syscall.SIGTERM)
+	return nil
+}
+
+func cgroupEmpty(cgroupPath *string) (bool, error) {
+	pids, err := readCgroupPids(cgroupPath)
 	if err != nil {
-		// Process was already kill
-		return nil
+		return false, err
 	}
+
+	return len(pids) == 0, nil
+}
+
+func killCgroup(cgroupPath *string) error {
+	err := os.WriteFile(*cgroupPath, []byte("1"), 0o200)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func terminateProcess(cgroupPath *string, timeout time.Duration) error {
+	err := signalCgroups(cgroupPath, syscall.SIGTERM)
+	if err != nil {
+		return err
+	}
+
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		err = syscall.Kill(pid, 0)
+		isEmpty, err := cgroupEmpty(cgroupPath)
 		if err != nil {
+			return err
+		}
+
+		if isEmpty {
 			return nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	// instead of p.kill we use cgroups.kill in order to guarantee
-	// that all the processes
-	killFile := filepath.Join(*cgroupPath, "cgroup.kill")
-	err = os.WriteFile(killFile, []byte("1"), 0o200)
+	err = killCgroup(cgroupPath)
 	return err
 }
 
@@ -93,6 +107,7 @@ func stop(containerID string) error {
 	statePath := filepath.Join(containerPath, "state.json")
 	lockPath := filepath.Join(containerPath, "lock")
 	cgroupPath := "/sys/fs/cgroup/mycontainer"
+	cgroupDir := filepath.Join(cgroupPath, containerID)
 
 	fileLock, err := os.OpenFile(lockPath, syscall.O_RDWR, 0)
 	if err != nil {
@@ -123,7 +138,7 @@ func stop(containerID string) error {
 	childPID := strconv.Itoa(state.PID)
 	_, err = os.Stat("/proc/" + childPID)
 	if err == nil {
-		err = terminateProcess(state.PID, 10*time.Second)
+		err = terminateProcess(&cgroupDir, 10*time.Second)
 		if err != nil {
 			// if we reach this path means that p.kill went worng which should not happen
 			panic("process could not be killed os has failed us")
