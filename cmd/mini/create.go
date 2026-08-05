@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,7 +114,7 @@ const (
 )
 
 const (
-	MemoryDefaultMib = math.MaxInt
+	MemoryDefaultMib = 0
 	MemoryMinMib     = 16
 	MemoryMaxMib     = 1048576
 )
@@ -145,13 +144,12 @@ func validate(config *ContainerConfig) error {
 }
 
 func writeCgroups(config *CgroupConfig, path *string) error {
-	var memory string
-	if config.MemoryLimit == MemoryDefaultMib {
-		memory = "max"
-	} else {
-		memBytes := uint64(config.MemoryLimit * 1024 * 1204)
+	memory := "max"
+	if config.MemoryLimit > 0 {
+		memBytes := uint64(config.MemoryLimit * 1024)
 		memory = strconv.FormatUint(memBytes, 10)
 	}
+
 	err := os.WriteFile(filepath.Join(*path, "memory.max"), []byte(memory), 0o644)
 	if err != nil {
 		return err
@@ -217,8 +215,8 @@ func normalizePid(pid int64) int64 {
 }
 
 func normalizeCPU(cpu int64) (int64, int64) {
-	var cpuQuota, cpuPercentage int64
-	cpuPercentage = CpuPeriodDefault
+	var cpuQuota, cpuPeriod int64
+	cpuPeriod = CpuPeriodDefault
 
 	switch {
 	case cpu > CpuMaxPercentage:
@@ -228,10 +226,10 @@ func normalizeCPU(cpu int64) (int64, int64) {
 	}
 
 	if cpuQuota == 0 {
-		cpuQuota = (cpu / 100.0) * CpuPeriodDefault
+		cpuQuota = (cpu * CpuPeriodDefault) / 100
 	}
 
-	return cpuQuota, cpuPercentage
+	return cpuQuota, cpuPeriod
 }
 
 func create(pathConfig string) (*exec.Cmd, error) {
@@ -264,17 +262,12 @@ func create(pathConfig string) (*exec.Cmd, error) {
 
 	// after validating the pid the full group path is created
 	cgroupDir := filepath.Join(cgroupPath, config.ID)
-	err = os.Mkdir(cgroupDir, 0o700)
+	err = os.MkdirAll(cgroupDir, 0o700)
 	if err != nil {
 		return nil, err
 	}
 
 	cgroupConfig := normalizeCgroup(config.Resources)
-	err = writeCgroups(&cgroupConfig, &cgroupDir)
-	if err != nil {
-		return nil, err
-	}
-
 	err = writeCgroups(&cgroupConfig, &cgroupDir)
 	if err != nil {
 		return nil, err
