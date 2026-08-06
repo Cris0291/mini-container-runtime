@@ -13,7 +13,6 @@ func delete(containerID string) error {
 	containerPath := filepath.Join("/run/mycontainer", containerID)
 	statePath := filepath.Join(containerPath, "state.json")
 	lockPath := filepath.Join(containerPath, "lock")
-	cgroupPath := "/sys/fs/cgroup/mycontainer"
 	cgroupDir := filepath.Join(cgroupPath, containerID)
 
 	fileLock, err := os.OpenFile(lockPath, syscall.O_RDWR, 0)

@@ -126,6 +126,10 @@ const (
 	CpuPeriodDefault = 100000
 )
 
+const cgroupPath = "/sys/fs/cgroup/mycontainer"
+
+const controlGroups = "+cpu +memory +pids"
+
 func validate(config *ContainerConfig) error {
 	if config.ID == "" {
 		return errors.New("No id was provided in the json file")
@@ -143,25 +147,25 @@ func validate(config *ContainerConfig) error {
 	return nil
 }
 
-func writeCgroups(config *CgroupConfig, path *string) error {
+func writeCgroups(config *CgroupConfig, path string) error {
 	memory := "max"
 	if config.MemoryLimit > 0 {
 		memBytes := uint64(config.MemoryLimit * 1024)
 		memory = strconv.FormatUint(memBytes, 10)
 	}
 
-	err := os.WriteFile(filepath.Join(*path, "memory.max"), []byte(memory), 0o644)
+	err := os.WriteFile(filepath.Join(path, "memory.max"), []byte(memory), 0o644)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(filepath.Join(*path, "pids.max"), []byte(strconv.FormatInt(config.PidLimit, 10)), 0o644)
+	err = os.WriteFile(filepath.Join(path, "pids.max"), []byte(strconv.FormatInt(config.PidLimit, 10)), 0o644)
 	if err != nil {
 		return err
 	}
 
 	cpumax := fmt.Sprintf("%d %d", config.CpuQuota, config.CpuPeriod)
-	err = os.WriteFile(filepath.Join(*path, "cpu.max"), []byte(cpumax), 0o644)
+	err = os.WriteFile(filepath.Join(path, "cpu.max"), []byte(cpumax), 0o644)
 	return err
 }
 
@@ -232,10 +236,27 @@ func normalizeCPU(cpu int64) (int64, int64) {
 	return cpuQuota, cpuPeriod
 }
 
+func createDir(path string, perm os.FileMode) error {
+	err := os.Mkdir(path, perm)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeCgroupControl() error {
+	control := []byte(controlGroups)
+	err := os.WriteFile(cgroupPath, control, 0o644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func create(pathConfig string) (*exec.Cmd, error) {
 	// this path should not be in the json config
 	// it should be dynamically created the mycontainer part is temporary
-	cgroupPath := "/sys/fs/cgroup/mycontainer"
 	path := filepath.Join(pathConfig, "config.json")
 
 	jsonConfig, err := os.ReadFile(path)
@@ -260,15 +281,24 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	// after validating the pid the full group path is created
+	err = createDir(cgroupPath, 0o700)
+	if err != nil {
+		return nil, err
+	}
+
+	err = writeCgroupControl()
+	if err != nil {
+		return nil, err
+	}
+
 	cgroupDir := filepath.Join(cgroupPath, config.ID)
-	err = os.MkdirAll(cgroupDir, 0o700)
+	err = createDir(cgroupDir, 0o700)
 	if err != nil {
 		return nil, err
 	}
 
 	cgroupConfig := normalizeCgroup(config.Resources)
-	err = writeCgroups(&cgroupConfig, &cgroupDir)
+	err = writeCgroups(&cgroupConfig, cgroupDir)
 	if err != nil {
 		return nil, err
 	}
