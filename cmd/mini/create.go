@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -128,6 +129,8 @@ const (
 
 const cgroupPath = "/sys/fs/cgroup/mycontainer"
 
+const cgroupSubControl = "/sys/fs/cgroup/mycontainer/cgroup.subtree_control"
+
 const controlGroups = "+cpu +memory +pids"
 
 func validate(config *ContainerConfig) error {
@@ -150,7 +153,7 @@ func validate(config *ContainerConfig) error {
 func writeCgroups(config *CgroupConfig, path string) error {
 	memory := "max"
 	if config.MemoryLimit > 0 {
-		memBytes := uint64(config.MemoryLimit * 1024)
+		memBytes := uint64(config.MemoryLimit * 1024 * 1024)
 		memory = strconv.FormatUint(memBytes, 10)
 	}
 
@@ -246,9 +249,42 @@ func createDir(path string, perm os.FileMode) error {
 
 func writeCgroupControl() error {
 	control := []byte(controlGroups)
-	err := os.WriteFile(cgroupPath, control, 0o644)
+	err := os.WriteFile(cgroupSubControl, control, 0o644)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func pathExist(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+
+	return false, err
+}
+
+func cgroupControlExist() error {
+	data, err := os.ReadFile(cgroupPath)
+	if err != nil {
+		return err
+	}
+	control := string(data)
+
+	subControls := strings.Fields(control)
+
+	expected := []string{"memory", "pid", "cpu"}
+
+	for _, ctr := range expected {
+		if !slices.Contains(subControls, ctr) {
+			return errors.New("cgroups were not written")
+		}
 	}
 
 	return nil
@@ -281,20 +317,37 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	err = createDir(cgroupPath, 0o700)
+	isPath, err := pathExist(cgroupPath)
 	if err != nil {
 		return nil, err
 	}
 
-	err = writeCgroupControl()
-	if err != nil {
-		return nil, err
+	if !isPath {
+		err = createDir(cgroupPath, 0o700)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// assume that if path exist already cgroup was already written
+	if !isPath {
+		err = writeCgroupControl()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	cgroupDir := filepath.Join(cgroupPath, config.ID)
-	err = createDir(cgroupDir, 0o700)
+	isPath, err = pathExist(cgroupDir)
 	if err != nil {
 		return nil, err
+	}
+
+	if !isPath {
+		err = createDir(cgroupDir, 0o700)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	cgroupConfig := normalizeCgroup(config.Resources)

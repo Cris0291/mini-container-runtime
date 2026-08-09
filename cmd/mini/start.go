@@ -55,10 +55,6 @@ func start(containerID string) error {
 
 	defer file.Close()
 
-	if err != nil {
-		return err
-	}
-
 	buff := make([]byte, 1)
 	_, err = file.Read(buff)
 	if err != nil {
