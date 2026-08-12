@@ -24,8 +24,9 @@ func writeStopState(state *ContainerState, statePath *string) error {
 	return nil
 }
 
-func readCgroupPids(cgroupPath *string) ([]int, error) {
-	data, err := os.ReadFile(*cgroupPath)
+func readCgroupPids(cgroupPath string) ([]int, error) {
+	cgroupProc := filepath.Join(cgroupPath, "cgroup.procs")
+	data, err := os.ReadFile(cgroupProc)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +46,7 @@ func readCgroupPids(cgroupPath *string) ([]int, error) {
 	return pids, nil
 }
 
-func signalCgroups(cgroupPath *string, signal syscall.Signal) error {
+func signalCgroups(cgroupPath string, signal syscall.Signal) error {
 	pids, err := readCgroupPids(cgroupPath)
 	if err != nil {
 		return err
@@ -61,7 +62,7 @@ func signalCgroups(cgroupPath *string, signal syscall.Signal) error {
 	return nil
 }
 
-func cgroupEmpty(cgroupPath *string) (bool, error) {
+func cgroupEmpty(cgroupPath string) (bool, error) {
 	pids, err := readCgroupPids(cgroupPath)
 	if err != nil {
 		return false, err
@@ -70,8 +71,9 @@ func cgroupEmpty(cgroupPath *string) (bool, error) {
 	return len(pids) == 0, nil
 }
 
-func killCgroup(cgroupPath *string) error {
-	err := os.WriteFile(*cgroupPath, []byte("1"), 0o200)
+func killCgroup(cgroupPath string) error {
+	cgroupKill := filepath.Join(cgroupPath, "cgroup.kill")
+	err := os.WriteFile(cgroupKill, []byte("1"), 0o200)
 	if err != nil {
 		return err
 	}
@@ -79,7 +81,7 @@ func killCgroup(cgroupPath *string) error {
 	return nil
 }
 
-func terminateProcess(cgroupPath *string, timeout time.Duration) error {
+func terminateProcess(cgroupPath string, timeout time.Duration) error {
 	err := signalCgroups(cgroupPath, syscall.SIGTERM)
 	if err != nil {
 		return err
@@ -137,7 +139,7 @@ func stop(containerID string) error {
 	childPID := strconv.Itoa(state.PID)
 	_, err = os.Stat("/proc/" + childPID)
 	if err == nil {
-		err = terminateProcess(&cgroupDir, 10*time.Second)
+		err = terminateProcess(cgroupDir, 10*time.Second)
 		if err != nil {
 			// if we reach this path means that p.kill went worng which should not happen
 			panic("process could not be killed os has failed us")

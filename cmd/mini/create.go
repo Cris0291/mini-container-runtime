@@ -172,9 +172,9 @@ func writeCgroups(config *CgroupConfig, path string) error {
 	return err
 }
 
-func writePidToCgroups(pid int, path *string) error {
+func writePidToCgroups(pid int, path string) error {
 	strPid := strconv.Itoa(pid)
-	err := os.WriteFile(*path, []byte(strPid), 0o644)
+	err := os.WriteFile(path, []byte(strPid), 0o644)
 	return err
 }
 
@@ -351,7 +351,8 @@ func create(pathConfig string) (*exec.Cmd, error) {
 	}
 
 	cgroupConfig := normalizeCgroup(config.Resources)
-	err = writeCgroups(&cgroupConfig, cgroupDir)
+	containerSubtreeControl := filepath.Join(cgroupDir, "cgroup.subtree_control")
+	err = writeCgroups(&cgroupConfig, containerSubtreeControl)
 	if err != nil {
 		return nil, err
 	}
@@ -403,7 +404,7 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	err = writePidToCgroups(cmd.Process.Pid, &cgroupDir)
+	err = writePidToCgroups(cmd.Process.Pid, filepath.Join(cgroupDir, "cgroup.procs"))
 	if err != nil {
 		return nil, err
 	}
