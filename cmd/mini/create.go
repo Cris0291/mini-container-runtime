@@ -270,24 +270,24 @@ func pathExist(path string) (bool, error) {
 	return false, err
 }
 
-func cgroupControlExist() error {
-	data, err := os.ReadFile(cgroupPath)
+func cgroupControlExist() (bool, error) {
+	data, err := os.ReadFile(cgroupSubControl)
 	if err != nil {
-		return err
+		return false, err
 	}
 	control := string(data)
 
 	subControls := strings.Fields(control)
 
-	expected := []string{"memory", "pid", "cpu"}
+	expected := []string{"memory", "pids", "cpu"}
 
 	for _, ctr := range expected {
 		if !slices.Contains(subControls, ctr) {
-			return errors.New("cgroups were not written")
+			return false, nil
 		}
 	}
 
-	return nil
+	return true, nil
 }
 
 func create(pathConfig string) (*exec.Cmd, error) {
@@ -329,8 +329,13 @@ func create(pathConfig string) (*exec.Cmd, error) {
 		}
 	}
 
+	isControl, err := cgroupControlExist()
+	if err != nil {
+		return nil, err
+	}
+
 	// assume that if path exist already cgroup was already written
-	if !isPath {
+	if !isControl {
 		err = writeCgroupControl()
 		if err != nil {
 			return nil, err
@@ -351,8 +356,7 @@ func create(pathConfig string) (*exec.Cmd, error) {
 	}
 
 	cgroupConfig := normalizeCgroup(config.Resources)
-	containerSubtreeControl := filepath.Join(cgroupDir, "cgroup.subtree_control")
-	err = writeCgroups(&cgroupConfig, containerSubtreeControl)
+	err = writeCgroups(&cgroupConfig, cgroupDir)
 	if err != nil {
 		return nil, err
 	}
