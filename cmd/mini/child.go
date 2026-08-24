@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,15 @@ import (
 	"strconv"
 	"syscall"
 )
+
+var globalDeviceMap = map[string][2]uint32{
+	"/dev/null":    {1, 3},
+	"/dev/zero":    {1, 5},
+	"/dev/full":    {1, 7},
+	"/dev/random":  {1, 8},
+	"/dev/urandom": {1, 9},
+	"/dev/tty":     {5, 0},
+}
 
 func MountVirtualFileSystems(config *ContainerConfig) error {
 	for _, mount := range config.Mounts {
@@ -62,6 +72,36 @@ func PivotRoot(config *ContainerConfig) error {
 	return nil
 }
 
+func mountDev() error {
+	_, err := os.Stat("/dev")
+	if err != nil && errors.Is(err, os.ErrNotExist) {
+		os.Mkdir("/dev", 0o755)
+	} else {
+		return err
+	}
+
+	err = syscall.Mount("tmpfs", "/dev", "tmpfs", syscall.MS_NOSUID, "mode=755")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func makedev(major, minor uint32) int {
+	return int((major << 8) | minor)
+}
+
+func createDevNodes() error {
+	for path, majmin := range globalDeviceMap {
+		err := syscall.Mknod(path, syscall.S_IFCHR|0o666, makedev(majmin[0], majmin[1]))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func ChildInit() error {
 	fmt.Fprintf(os.Stderr, "child started")
 	containerID := os.Getenv("_MYCONTAINER_CONFIGID")
@@ -99,19 +139,29 @@ func ChildInit() error {
 		return fmt.Errorf("mount virtual file system step: %w", err)
 	}
 
-	fileExecFifo, err := os.OpenFile(execFifoPath, syscall.O_WRONLY|syscall.O_CLOEXEC, 0)
-	if err != nil {
-		return fmt.Errorf("exec fifo step: %w", err)
-	}
-
 	err = PivotRoot(&config)
 	if err != nil {
 		return fmt.Errorf("pivot root: %w", err)
 	}
 
+	err = mountDev()
+	if err != nil {
+		return err
+	}
+
+	err = createDevNodes()
+	if err != nil {
+		return err
+	}
+
 	err = os.Chdir(config.Process.Cwd)
 	if err != nil {
 		return fmt.Errorf("chdir step: %w", err)
+	}
+
+	fileExecFifo, err := os.OpenFile(execFifoPath, syscall.O_WRONLY|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return fmt.Errorf("exec fifo step: %w", err)
 	}
 
 	_, err = fileExecFifo.Write([]byte("0"))
