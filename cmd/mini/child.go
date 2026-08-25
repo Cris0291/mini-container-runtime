@@ -139,29 +139,39 @@ func ChildInit() error {
 		return fmt.Errorf("mount virtual file system step: %w", err)
 	}
 
+	fmt.Fprintf(os.Stderr, "child after mount")
+
+	fileExecFifo, err := os.OpenFile(execFifoPath, syscall.O_WRONLY|syscall.O_CLOEXEC, 0)
+	if err != nil {
+		return fmt.Errorf("exec fifo step: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "child after open fifo path")
+
 	err = PivotRoot(&config)
 	if err != nil {
 		return fmt.Errorf("pivot root: %w", err)
 	}
+
+	fmt.Fprintf(os.Stderr, "child after pivot")
 
 	err = mountDev()
 	if err != nil {
 		return err
 	}
 
+	fmt.Fprintf(os.Stderr, "child after mount dev")
+
 	err = createDevNodes()
 	if err != nil {
 		return err
 	}
 
+	fmt.Fprintf(os.Stderr, "child after create dev nodes")
+
 	err = os.Chdir(config.Process.Cwd)
 	if err != nil {
 		return fmt.Errorf("chdir step: %w", err)
-	}
-
-	fileExecFifo, err := os.OpenFile(execFifoPath, syscall.O_WRONLY|syscall.O_CLOEXEC, 0)
-	if err != nil {
-		return fmt.Errorf("exec fifo step: %w", err)
 	}
 
 	_, err = fileExecFifo.Write([]byte("0"))
