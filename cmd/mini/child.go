@@ -75,15 +75,20 @@ func PivotRoot(config *ContainerConfig) error {
 func mountDev() error {
 	_, err := os.Stat("/dev")
 	if err != nil && errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintln(os.Stderr, "before dev")
 		os.Mkdir("/dev", 0o755)
-	} else {
+		fmt.Fprintln(os.Stderr, "after dev")
+	} else if err != nil {
+		fmt.Fprintln(os.Stderr, "dev err")
 		return err
 	}
 
+	fmt.Fprintln(os.Stderr, "before mount dev")
 	err = syscall.Mount("tmpfs", "/dev", "tmpfs", syscall.MS_NOSUID, "mode=755")
 	if err != nil {
 		return err
 	}
+	fmt.Fprintln(os.Stderr, "after mount dev")
 
 	return nil
 }
@@ -96,7 +101,7 @@ func createDevNodes() error {
 	for path, majmin := range globalDeviceMap {
 		err := syscall.Mknod(path, syscall.S_IFCHR|0o666, makedev(majmin[0], majmin[1]))
 		if err != nil {
-			return err
+			return fmt.Errorf("in create dev nodes: %w", err)
 		}
 	}
 	return nil
