@@ -110,7 +110,7 @@ type CgroupConfig struct {
 
 const (
 	PidDefault    = 1024
-	PidMinDefault = 3
+	PidMinDefault = 16
 	PidMaxDefault = 10000000
 )
 
