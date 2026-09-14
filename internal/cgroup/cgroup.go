@@ -1,4 +1,14 @@
-package main
+package cgroup
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+
+	"containerruntime/internal/cgroup"
+	"containerruntime/internal/container"
+)
 
 type CgroupContainer struct {
 	Config         CgroupConfig
@@ -39,13 +49,38 @@ const (
 	controlGroups    = "+cpu +memory +pids"
 )
 
-func NewCgroupContainer() *CgroupContainer {
+func NewCgroupContainer(path string, containerID string) *CgroupContainer {
+	subcontrolPath := filepath.Join(path, "cgroup.subtree_control")
+	containerPath := filepath.Join(path, containerID)
+	groupsPath := filepath.Join(containerPath, "cgroup.procs")
+
+	c := &CgroupContainer{Path: path, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
+	return c
 }
 
-func writeCgroups(config *CgroupConfig, path string) error {
+func (cgroup *CgroupContainer) normalizeCgroup(config *container.ResourceConfig) {
+	cgroup.Config = CgroupConfig{
+		MemoryLimit: MemoryDefaultMib,
+		PidLimit:    PidDefault,
+		CpuQuota:    CpuQuotaDefault,
+		CpuPeriod:   CpuPeriodDefault,
+	}
+	if config == nil {
+		return
+	}
+
+	quota, period := normalizeCPU(config.CPUShares)
+
+	cgroup.Config.MemoryLimit = normalizeMemory(config.MemoryLimit)
+	cgroup.Config.PidLimit = normalizePid(config.PidsLimit)
+	cgroup.Config.CpuQuota = quota
+	cgroup.Config.CpuPeriod = period
+}
+
+func (cgroup *CgroupContainer) writeCgroups(path string) error {
 	memory := "max"
-	if config.MemoryLimit > 0 {
-		memBytes := uint64(config.MemoryLimit * 1024 * 1024)
+	if cgroup.Config.MemoryLimit > 0 {
+		memBytes := uint64(cgroup.Config.MemoryLimit * 1024 * 1024)
 		memory = strconv.FormatUint(memBytes, 10)
 	}
 
@@ -54,12 +89,12 @@ func writeCgroups(config *CgroupConfig, path string) error {
 		return err
 	}
 
-	err = os.WriteFile(filepath.Join(path, "pids.max"), []byte(strconv.FormatInt(config.PidLimit, 10)), 0o644)
+	err = os.WriteFile(filepath.Join(path, "pids.max"), []byte(strconv.FormatInt(cgroup.Config.PidLimit, 10)), 0o644)
 	if err != nil {
 		return err
 	}
 
-	cpumax := fmt.Sprintf("%d %d", config.CpuQuota, config.CpuPeriod)
+	cpumax := fmt.Sprintf("%d %d", cgroup.Config.CpuQuota, cgroup.Config.CpuPeriod)
 	err = os.WriteFile(filepath.Join(path, "cpu.max"), []byte(cpumax), 0o644)
 	return err
 }
@@ -68,27 +103,6 @@ func writePidToCgroups(pid int, path string) error {
 	strPid := strconv.Itoa(pid)
 	err := os.WriteFile(path, []byte(strPid), 0o644)
 	return err
-}
-
-func normalizeCgroup(config *ResourceConfig) CgroupConfig {
-	cgroup := CgroupConfig{
-		MemoryLimit: MemoryDefaultMib,
-		PidLimit:    PidDefault,
-		CpuQuota:    CpuQuotaDefault,
-		CpuPeriod:   CpuPeriodDefault,
-	}
-	if config == nil {
-		return cgroup
-	}
-
-	quota, period := normalizeCPU(config.CPUShares)
-
-	cgroup.MemoryLimit = normalizeMemory(config.MemoryLimit)
-	cgroup.PidLimit = normalizePid(config.PidsLimit)
-	cgroup.CpuQuota = quota
-	cgroup.CpuPeriod = period
-
-	return cgroup
 }
 
 func normalizeMemory(memoryConfig int64) int64 {
@@ -131,9 +145,9 @@ func normalizeCPU(cpu int64) (int64, int64) {
 	return cpuQuota, cpuPeriod
 }
 
-func writeCgroupControl() error {
+func (cgroup *CgroupContainer) writeCgroupControl() error {
 	control := []byte(controlGroups)
-	err := os.WriteFile(cgroupSubControl, control, 0o644)
+	err := os.WriteFile(cgroup.SubControlPath, control, 0o644)
 	if err != nil {
 		return err
 	}
@@ -141,8 +155,8 @@ func writeCgroupControl() error {
 	return nil
 }
 
-func cgroupControlExist() (bool, error) {
-	data, err := os.ReadFile(cgroupSubControl)
+func (cgroup( *CgroupContainer) cgroupControlExist() (bool, error) {
+	data, err := os.ReadFile(cgroup.SubControlPath)
 	if err != nil {
 		return false, err
 	}
