@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"containerruntime/internal/config"
 )
 
 type Container struct {
@@ -46,12 +48,12 @@ func (container *Container) SetFlock(flockHow int) (*os.File, error) {
 	return fileLock, nil
 }
 
-func (container *Container) CreateContainerState() (*ContainerState, error) {
+func (container *Container) CreateContainerState() (*config.ContainerState, error) {
 	file, err := os.ReadFile(container.ContainerStatePath)
 	if err != nil {
 		return nil, err
 	}
-	var state ContainerState
+	var state config.ContainerState
 	err = json.Unmarshal(file, &state)
 	if err != nil {
 		return nil, err

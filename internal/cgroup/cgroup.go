@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
+	"strings"
+	"syscall"
+	"time"
 
-	"containerruntime/internal/cgroup"
-	"containerruntime/internal/container"
+	"containerruntime/internal/config"
 )
 
 type CgroupContainer struct {
 	Config         CgroupConfig
 	Path           string
+	ContainerPath  string
 	SubControlPath string
 	GroupsPath     string
 }
@@ -54,11 +58,11 @@ func NewCgroupContainer(path string, containerID string) *CgroupContainer {
 	containerPath := filepath.Join(path, containerID)
 	groupsPath := filepath.Join(containerPath, "cgroup.procs")
 
-	c := &CgroupContainer{Path: path, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
+	c := &CgroupContainer{Path: path, ContainerPath: containerPath, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
 	return c
 }
 
-func (cgroup *CgroupContainer) normalizeCgroup(config *container.ResourceConfig) {
+func (cgroup *CgroupContainer) normalizeCgroup(config *config.ResourceConfig) {
 	cgroup.Config = CgroupConfig{
 		MemoryLimit: MemoryDefaultMib,
 		PidLimit:    PidDefault,
@@ -155,7 +159,7 @@ func (cgroup *CgroupContainer) writeCgroupControl() error {
 	return nil
 }
 
-func (cgroup( *CgroupContainer) cgroupControlExist() (bool, error) {
+func (cgroup *CgroupContainer) cgroupControlExist() (bool, error) {
 	data, err := os.ReadFile(cgroup.SubControlPath)
 	if err != nil {
 		return false, err
@@ -175,9 +179,8 @@ func (cgroup( *CgroupContainer) cgroupControlExist() (bool, error) {
 	return true, nil
 }
 
-func readCgroupPids(cgroupPath string) ([]int, error) {
-	cgroupProc := filepath.Join(cgroupPath, "cgroup.procs")
-	data, err := os.ReadFile(cgroupProc)
+func (cgroup *CgroupContainer) readCgroupPids() ([]int, error) {
+	data, err := os.ReadFile(cgroup.GroupsPath)
 	if err != nil {
 		return nil, err
 	}
@@ -197,8 +200,8 @@ func readCgroupPids(cgroupPath string) ([]int, error) {
 	return pids, nil
 }
 
-func signalCgroups(cgroupPath string, signal syscall.Signal) error {
-	pids, err := readCgroupPids(cgroupPath)
+func (cgroup *CgroupContainer) signalCgroups(signal syscall.Signal) error {
+	pids, err := cgroup.readCgroupPids()
 	if err != nil {
 		return err
 	}
@@ -213,8 +216,8 @@ func signalCgroups(cgroupPath string, signal syscall.Signal) error {
 	return nil
 }
 
-func cgroupEmpty(cgroupPath string) (bool, error) {
-	pids, err := readCgroupPids(cgroupPath)
+func (cgroup *CgroupContainer) cgroupEmpty() (bool, error) {
+	pids, err := cgroup.readCgroupPids()
 	if err != nil {
 		return false, err
 	}
@@ -222,8 +225,8 @@ func cgroupEmpty(cgroupPath string) (bool, error) {
 	return len(pids) == 0, nil
 }
 
-func killCgroup(cgroupPath string) error {
-	cgroupKill := filepath.Join(cgroupPath, "cgroup.kill")
+func (cgroup *CgroupContainer) killCgroup() error {
+	cgroupKill := filepath.Join(cgroup.ContainerPath, "cgroup.kill")
 	err := os.WriteFile(cgroupKill, []byte("1"), 0o200)
 	if err != nil {
 		return err
@@ -232,15 +235,15 @@ func killCgroup(cgroupPath string) error {
 	return nil
 }
 
-func terminateProcess(cgroupPath string, timeout time.Duration) error {
-	err := signalCgroups(cgroupPath, syscall.SIGTERM)
+func (cgroup *CgroupContainer) terminateProcess(timeout time.Duration) error {
+	err := cgroup.signalCgroups(syscall.SIGTERM)
 	if err != nil {
 		return err
 	}
 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		isEmpty, err := cgroupEmpty(cgroupPath)
+		isEmpty, err := cgroup.cgroupEmpty()
 		if err != nil {
 			return err
 		}
@@ -251,6 +254,6 @@ func terminateProcess(cgroupPath string, timeout time.Duration) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	err = killCgroup(cgroupPath)
+	err = cgroup.killCgroup()
 	return err
 }
