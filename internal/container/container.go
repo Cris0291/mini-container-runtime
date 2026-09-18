@@ -17,24 +17,22 @@ type Container struct {
 	ContainerStatePath      string
 	ContainerLockPath       string
 	ContainerFifoPath       string
-	statePath               string
-	lockPath                string
-	fifoPath                string
-	jsonPath                string
 }
 
-func NewContainer(containerDir string, containerID string, containerJsonPath string, state string, lock string, fifo string) *Container {
-	c := &Container{ContainerDirPath: containerDir, ContainerID: containerID, statePath: state, lockPath: lock, fifoPath: fifo, jsonPath: containerJsonPath}
-	c.initialize()
+func NewContainer(containerDir string, containerID string, jsonPath string, state string, lock string, fifo string) *Container {
+	containerPath := filepath.Join(containerDir, containerID)
+	containerStatePath := filepath.Join(containerPath, state)
+	containerLockPath := filepath.Join(containerPath, lock)
+	containerFifoPath := filepath.Join(containerPath, fifo)
+	containerConfigJsonPath := filepath.Join(containerPath, jsonPath)
+
+	c := &Container{
+		ContainerDirPath: containerDir, ContainerID: containerID, ContainerPath: containerPath,
+		ContainerStatePath: containerStatePath, ContainerConfigJsonPath: containerConfigJsonPath,
+		ContainerFifoPath: containerFifoPath, ContainerLockPath: containerLockPath,
+	}
+
 	return c
-}
-
-func (container *Container) initialize() {
-	container.ContainerPath = filepath.Join(container.ContainerDirPath, container.ContainerID)
-	container.ContainerStatePath = filepath.Join(container.ContainerPath, container.statePath)
-	container.ContainerLockPath = filepath.Join(container.ContainerPath, container.lockPath)
-	container.ContainerFifoPath = filepath.Join(container.ContainerPath, container.fifoPath)
-	container.ContainerConfigJsonPath = filepath.Join(container.ContainerPath, container.jsonPath)
 }
 
 func (container *Container) SetFlock(flockHow int) (*os.File, error) {

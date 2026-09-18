@@ -1,18 +1,20 @@
 package container
 
-import "os/exec"
+import (
+	"encoding/json"
+	"os/exec"
+	"path/filepath"
+
+	"containerruntime/internal/config"
+)
 
 func (contianer *Container) create(pathConfig string) (*exec.Cmd, error) {
-	// this path should not be in the json config
-	// it should be dynamically created the mycontainer part is temporary
-	path := filepath.Join(pathConfig, "config.json")
-
-	jsonConfig, err := os.ReadFile(path)
+	jsonConfig, err := os.ReadFile(contianer.ContainerConfigJsonPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var config ContainerConfig
+	var config config.ContainerConfig
 
 	err = json.Unmarshal(jsonConfig, &config)
 	if err != nil {
