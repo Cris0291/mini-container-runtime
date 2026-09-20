@@ -9,26 +9,29 @@ import (
 	"containerruntime/internal/config"
 )
 
+const (
+	containerDir = "/run/mycontainer"
+)
+
 type Container struct {
-	ContainerDirPath        string
-	ContainerPath           string
-	ContainerID             string
-	ContainerConfigJsonPath string
-	ContainerStatePath      string
-	ContainerLockPath       string
-	ContainerFifoPath       string
+	ContainerDirPath   string
+	ContainerPath      string
+	ContainerID        string
+	BundlePath         string
+	ContainerStatePath string
+	ContainerLockPath  string
+	ContainerFifoPath  string
 }
 
-func NewContainer(containerDir string, containerID string, jsonPath string, state string, lock string, fifo string) *Container {
+func NewContainer(containerID string, bundle string, state string, lock string, fifo string) *Container {
 	containerPath := filepath.Join(containerDir, containerID)
 	containerStatePath := filepath.Join(containerPath, state)
 	containerLockPath := filepath.Join(containerPath, lock)
 	containerFifoPath := filepath.Join(containerPath, fifo)
-	containerConfigJsonPath := filepath.Join(containerPath, jsonPath)
 
 	c := &Container{
 		ContainerDirPath: containerDir, ContainerID: containerID, ContainerPath: containerPath,
-		ContainerStatePath: containerStatePath, ContainerConfigJsonPath: containerConfigJsonPath,
+		ContainerStatePath: containerStatePath, BundlePath: bundle,,
 		ContainerFifoPath: containerFifoPath, ContainerLockPath: containerLockPath,
 	}
 
@@ -61,4 +64,8 @@ func (container *Container) CreateContainerState() (*config.ContainerState, erro
 	}
 
 	return &state, nil
+}
+
+func(container *Container) canonicalizePath(path string){
+	cleanPath := filepath.Clean(path)
 }
