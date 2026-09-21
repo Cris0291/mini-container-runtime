@@ -7,7 +7,6 @@ type ContainerConfig struct {
 	Hostname string `json:"hostname"`
 
 	Process ProcessConfig `json:"process_config"`
-	Rootfs  string        `json:"rootfs"`
 	Mounts  []Mount       `json:"mounts"`
 
 	Namespaces []Namespace `json:"namespaces"`

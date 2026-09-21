@@ -11,6 +11,9 @@ import (
 
 const (
 	containerDir = "/run/mycontainer"
+	fifo         = "exec.fifo"
+	lock         = "lock"
+	state        = "state.json"
 )
 
 type Container struct {
@@ -21,9 +24,10 @@ type Container struct {
 	ContainerStatePath string
 	ContainerLockPath  string
 	ContainerFifoPath  string
+	ContainerConfig    config.ContainerConfig
 }
 
-func NewContainer(containerID string, bundle string, state string, lock string, fifo string) *Container {
+func NewContainer(containerID string, bundle string) *Container {
 	containerPath := filepath.Join(containerDir, containerID)
 	containerStatePath := filepath.Join(containerPath, state)
 	containerLockPath := filepath.Join(containerPath, lock)
@@ -31,7 +35,7 @@ func NewContainer(containerID string, bundle string, state string, lock string, 
 
 	c := &Container{
 		ContainerDirPath: containerDir, ContainerID: containerID, ContainerPath: containerPath,
-		ContainerStatePath: containerStatePath, BundlePath: bundle,,
+		ContainerStatePath: containerStatePath, BundlePath: bundle,
 		ContainerFifoPath: containerFifoPath, ContainerLockPath: containerLockPath,
 	}
 
@@ -66,6 +70,31 @@ func (container *Container) CreateContainerState() (*config.ContainerState, erro
 	return &state, nil
 }
 
-func(container *Container) canonicalizePath(path string){
+func (container *Container) canonicalizePath(path string) (string, error) {
 	cleanPath := filepath.Clean(path)
+	resPath, err := filepath.EvalSymlinks(cleanPath)
+	if err != nil {
+		return "", err
+	}
+
+	return resPath, nil
+}
+
+func Unmarshal[T any](data []byte) (T, error) {
+	var state T
+
+	err := json.Unmarshal(data, &state)
+	if err != nil {
+		return state, err
+	}
+
+	return state, nil
+}
+
+func validateBundle(bundlePath string) error {
+	rootfsPath := filepath.Join(bundlePath, "rootfs")
+	info, err := os.Stat(rootfsPath)
+	if err != nil {
+		return err
+	}
 }
