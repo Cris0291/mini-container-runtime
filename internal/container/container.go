@@ -2,8 +2,10 @@ package container
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"syscall"
 
 	"containerruntime/internal/config"
@@ -27,11 +29,20 @@ type Container struct {
 	ContainerConfig    config.ContainerConfig
 }
 
-func NewContainer(containerID string, bundle string) *Container {
+func NewContainer(containerID string, bundle string) (*Container, error) {
 	containerPath := filepath.Join(containerDir, containerID)
 	containerStatePath := filepath.Join(containerPath, state)
 	containerLockPath := filepath.Join(containerPath, lock)
 	containerFifoPath := filepath.Join(containerPath, fifo)
+
+	if !validateID(containerID) {
+		return nil, errors.New("invalid container id")
+	}
+
+	err := validateBundle(bundle)
+	if err != nil {
+		return nil, err
+	}
 
 	c := &Container{
 		ContainerDirPath: containerDir, ContainerID: containerID, ContainerPath: containerPath,
@@ -39,7 +50,7 @@ func NewContainer(containerID string, bundle string) *Container {
 		ContainerFifoPath: containerFifoPath, ContainerLockPath: containerLockPath,
 	}
 
-	return c
+	return c, nil
 }
 
 func (container *Container) SetFlock(flockHow int) (*os.File, error) {
@@ -97,4 +108,35 @@ func validateBundle(bundlePath string) error {
 	if err != nil {
 		return err
 	}
+
+	if !info.IsDir() {
+		return errors.New("rootfs is not a directory")
+	}
+
+	entries, err := os.ReadDir(rootfsPath)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		entryInfo, err := entry.Info()
+		if err != nil {
+			return err
+		}
+
+		if entryInfo.Mode().Perm()&0o111 != 0 {
+			return nil
+		}
+	}
+
+	return errors.New("no executable was found in rootfs")
+}
+
+func validateID(contianerID string) bool {
+	re := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	return re.MatchString(contianerID)
 }
