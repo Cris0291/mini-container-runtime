@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"syscall"
 
 	"containerruntime/internal/config"
@@ -17,6 +18,8 @@ const (
 	lock         = "lock"
 	state        = "state.json"
 )
+
+var validMapSource = []string{"proc", "tmpfs", "sysfs", "devpts", "mqueue"}
 
 type Container struct {
 	ContainerDirPath   string
@@ -139,4 +142,31 @@ func validateBundle(bundlePath string) error {
 func validateID(contianerID string) bool {
 	re := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	return re.MatchString(contianerID)
+}
+
+func (container *Container) MountVirtualFileSystems() error {
+	rootfsPath := filepath.Join(container.BundlePath, "rootfs")
+
+	for _, mount := range container.ContainerConfig.Mounts {
+		path := filepath.Join(rootfsPath, mount.Destination)
+		newPath, err := container.canonicalizePath(path)
+		if err != nil {
+			return err
+		}
+
+		// for now bind type is nto allowed
+		if !slices.Contains(validMapSource, mount.Type) {
+			return errors.New("invalid mount type")
+		}
+
+		err = os.MkdirAll(path, 0o711)
+		if err != nil {
+			return err
+		}
+		err = syscall.Mount(mount.Source, newPath, mount.Type, uintptr(mount.Flags), mount.Data)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

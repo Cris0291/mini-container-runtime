@@ -53,12 +53,12 @@ const (
 	controlGroups    = "+cpu +memory +pids"
 )
 
-func NewCgroupContainer(path string, containerID string) *CgroupContainer {
-	subcontrolPath := filepath.Join(path, "cgroup.subtree_control")
-	containerPath := filepath.Join(path, containerID)
+func NewCgroupContainer(containerID string) *CgroupContainer {
+	subcontrolPath := filepath.Join(cgroupPath, "cgroup.subtree_control")
+	containerPath := filepath.Join(cgroupPath, containerID)
 	groupsPath := filepath.Join(containerPath, "cgroup.procs")
 
-	c := &CgroupContainer{Path: path, ContainerPath: containerPath, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
+	c := &CgroupContainer{Path: cgroupPath, ContainerPath: containerPath, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
 	return c
 }
 

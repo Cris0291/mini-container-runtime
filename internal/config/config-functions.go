@@ -48,13 +48,6 @@ func (config *ContainerConfig) validate() error {
 	if config.Hostname == "" {
 		return errors.New("no hostname was provided i the json config file")
 	}
-	if config.Rootfs == "" {
-		return errors.New("no rootfs was provided in the json config file")
-	}
-	_, err := os.Stat(config.Rootfs)
-	if err != nil {
-		return errors.New("rootfs path does not exist")
-	}
 	return nil
 }
 
