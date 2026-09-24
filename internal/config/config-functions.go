@@ -41,17 +41,7 @@ func (c *ContainerConfig) CloneFlags() uintptr {
 	return flags
 }
 
-func (config *ContainerConfig) validate() error {
-	if config.ID == "" {
-		return errors.New("no id was provided in the json file")
-	}
-	if config.Hostname == "" {
-		return errors.New("no hostname was provided i the json config file")
-	}
-	return nil
-}
-
-func createDir(path string, perm os.FileMode) error {
+func CreateDir(path string, perm os.FileMode) error {
 	err := os.Mkdir(path, perm)
 	if err != nil {
 		return err
@@ -59,7 +49,7 @@ func createDir(path string, perm os.FileMode) error {
 	return nil
 }
 
-func pathExist(path string) (bool, error) {
+func PathExist(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
 		return true, nil

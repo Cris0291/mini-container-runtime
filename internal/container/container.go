@@ -170,3 +170,13 @@ func (container *Container) MountVirtualFileSystems() error {
 	}
 	return nil
 }
+
+func (container *Container) validate() error {
+	if container.ContainerConfig.ID == "" {
+		return errors.New("no id was provided in the json file")
+	}
+	if container.ContainerConfig.Hostname == "" {
+		return errors.New("no hostname was provided i the json config file")
+	}
+	return nil
+}

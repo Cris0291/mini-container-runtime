@@ -2,55 +2,40 @@ package container
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 
+	"containerruntime/internal/cgroup"
 	"containerruntime/internal/config"
 )
 
-func (contianer *Container) create(pathConfig string) (*exec.Cmd, error) {
-	jsonConfig, err := os.ReadFile(contianer.ContainerConfigJsonPath)
+func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, error) {
+	configJsonPath := filepath.Join(container.BundlePath, "config.json")
+
+	jsonConfig, err := os.ReadFile(configJsonPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var config config.ContainerConfig
-
-	err = json.Unmarshal(jsonConfig, &config)
+	containerConfig, err := Unmarshal[config.ContainerConfig](jsonConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	if !filepath.IsAbs(config.Rootfs) {
-		rootfsPath := filepath.Join(pathConfig, config.Rootfs)
-		config.Rootfs = rootfsPath
-	}
-
-	err = validate(&config)
+	err = container.validate()
 	if err != nil {
 		return nil, err
 	}
 
-	isPath, err := pathExist(cgroupPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if !isPath {
-		err = createDir(cgroupPath, 0o700)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	isControl, err := cgroupControlExist()
+	isControl, err := cgroup.CgroupControlExist()
 	if err != nil {
 		return nil, err
 	}
 
 	// assume that if path exist already cgroup was already written
 	if !isControl {
-		err = writeCgroupControl()
+		err = cgroup.WriteCgroupControl()
 		if err != nil {
 			return nil, err
 		}

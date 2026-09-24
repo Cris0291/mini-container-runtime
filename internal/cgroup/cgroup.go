@@ -53,13 +53,29 @@ const (
 	controlGroups    = "+cpu +memory +pids"
 )
 
-func NewCgroupContainer(containerID string) *CgroupContainer {
+func NewCgroupContainer(containerID string) (*CgroupContainer, error) {
 	subcontrolPath := filepath.Join(cgroupPath, "cgroup.subtree_control")
 	containerPath := filepath.Join(cgroupPath, containerID)
 	groupsPath := filepath.Join(containerPath, "cgroup.procs")
 
+	isPath, err := config.PathExist(cgroupPath)
+	if !isPath {
+		err = config.CreateDir(cgroupPath, 0o700)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	isPath, err := config.PathExist(cgroupPath)
+	if !isPath {
+		err = config.CreateDir(cgroupPath, 0o700)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	c := &CgroupContainer{Path: cgroupPath, ContainerPath: containerPath, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
-	return c
+	return c, nil
 }
 
 func (cgroup *CgroupContainer) normalizeCgroup(config *config.ResourceConfig) {
@@ -149,7 +165,7 @@ func normalizeCPU(cpu int64) (int64, int64) {
 	return cpuQuota, cpuPeriod
 }
 
-func (cgroup *CgroupContainer) writeCgroupControl() error {
+func (cgroup *CgroupContainer) WriteCgroupControl() error {
 	control := []byte(controlGroups)
 	err := os.WriteFile(cgroup.SubControlPath, control, 0o644)
 	if err != nil {
@@ -159,7 +175,7 @@ func (cgroup *CgroupContainer) writeCgroupControl() error {
 	return nil
 }
 
-func (cgroup *CgroupContainer) cgroupControlExist() (bool, error) {
+func (cgroup *CgroupContainer) CgroupControlExist() (bool, error) {
 	data, err := os.ReadFile(cgroup.SubControlPath)
 	if err != nil {
 		return false, err
