@@ -9,7 +9,7 @@ import (
 	"syscall"
 )
 
-var namespaceRelation = map[string]uintptr{
+var NamespaceRelation = map[string]uintptr{
 	"pid":    syscall.CLONE_NEWPID,
 	"uts":    syscall.CLONE_NEWUTS,
 	"mount":  syscall.CLONE_NEWNS,
@@ -27,6 +27,12 @@ var globalDeviceMap = map[string][2]uint32{
 	"/dev/urandom": {1, 9},
 	"/dev/tty":     {5, 0},
 }
+
+var (
+	MYCONTAINER_CONFIGPIPE = "_MYCONTAINER_CONFIGPIPE=3"
+	MYCONTAINER_EXECFIFO   = "_MYCONTAINER_EXECFIFO=4"
+	MYCONTAINER_CONFIGID   = "_MYCONTAINER_CONFIGID="
+)
 
 func (c *ContainerConfig) CloneFlags() uintptr {
 	var flags uintptr
@@ -60,6 +66,18 @@ func PathExist(path string) (bool, error) {
 	}
 
 	return false, err
+}
+
+func MakeDir(path string, perm os.FileMode) error {
+	isPath, err := PathExist(path)
+	if !isPath {
+		err = CreateDir(path, perm)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (config *ContainerConfig) MountVirtualFileSystems() error {

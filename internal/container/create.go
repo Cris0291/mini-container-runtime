@@ -1,9 +1,12 @@
 package container
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"containerruntime/internal/cgroup"
 	"containerruntime/internal/config"
@@ -23,6 +26,8 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 	if err != nil {
 		return nil, err
 	}
+
+	container.SetState(containerConfig)
 
 	err = container.validate()
 	if err != nil {
@@ -47,24 +52,13 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 		return nil, err
 	}
 
-	// create process state
-	stateDir := filepath.Join("/run/mycontainer", config.ID)
-
-	err = os.MkdirAll(stateDir, 0o711)
-	if err != nil {
-		return nil, err
-	}
-
-	lockFilePath := filepath.Join(stateDir, "lock")
-
-	fileLock, err := os.OpenFile(lockFilePath, syscall.O_RDWR|syscall.O_CREAT, 0o666)
+	fileLock, err := os.OpenFile(container.ContainerLockPath, syscall.O_RDWR|syscall.O_CREAT, 0o666)
 	if err != nil {
 		return nil, err
 	}
 
 	defer fileLock.Close()
 
-	// TODO: span a child process investigate exec.fifo is it the child rexec this process for now temp pid 0
 	r, w, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -75,39 +69,38 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: config.CloneFlags(), Setsid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: container.ContainerConfig.CloneFlags(), Setsid: true}
 
-	cmd.Env = append(cmd.Env, _MYCONTAINER_CONFIGPIPE)
+	cmd.Env = append(cmd.Env, config.MYCONTAINER_CONFIGPIPE)
 
-	execPath := filepath.Join(stateDir, "exec.fifo")
-	err = syscall.Mkfifo(execPath, 0o622)
+	err = syscall.Mkfifo(container.ContainerFifoPath, 0o622)
 	if err != nil {
 		return nil, err
 	}
 
-	cmd.Env = append(cmd.Env, _MYCONTAINER_CONFIGID+config.ID)
+	cmd.Env = append(cmd.Env, config.MYCONTAINER_CONFIGID+container.ContainerID)
 
-	cmd.Env = append(cmd.Env, _MYCONTAINER_EXECFIFO)
+	cmd.Env = append(cmd.Env, config.MYCONTAINER_EXECFIFO)
 
 	err = cmd.Start()
 	if err != nil {
 		return nil, err
 	}
 
-	err = writePidToCgroups(cmd.Process.Pid, filepath.Join(cgroupDir, "cgroup.procs"))
+	err = cgroup.WritePidToCgroups(cmd.Process.Pid)
 	if err != nil {
 		return nil, err
 	}
 
 	r.Close()
 
-	state := ContainerState{
-		ID:      config.ID,
+	state := config.ContainerState{
+		ID:      container.ContainerID,
 		PID:     cmd.Process.Pid,
 		Status:  "created",
-		Bundle:  pathConfig,
+		Bundle:  container.BundlePath,
 		Created: time.Now().UTC(),
-		Config:  config,
+		Config:  container.ContainerConfig,
 	}
 
 	data, err := json.MarshalIndent(state, "", "  ")
@@ -115,7 +108,7 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 		return nil, err
 	}
 
-	configData, err := json.Marshal(config)
+	configData, err := json.Marshal(container.ContainerConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +119,7 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 
 	w.Close()
 
-	stateDirPath := filepath.Join(stateDir, "state.json")
-	err = os.WriteFile(stateDirPath, data, 0o644)
+	err = os.WriteFile(container.ContainerPath, data, 0o644)
 	if err != nil {
 		return nil, err
 	}

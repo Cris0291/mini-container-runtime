@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"containerruntime/internal/cgroup"
 	"containerruntime/internal/config"
 )
 
@@ -58,12 +59,12 @@ func NewCgroupContainer(containerID string) (*CgroupContainer, error) {
 	containerPath := filepath.Join(cgroupPath, containerID)
 	groupsPath := filepath.Join(containerPath, "cgroup.procs")
 
-	err := makeDir(cgroupPath)
+	err := config.MakeDir(cgroupPath, 0o700)
 	if err != nil {
 		return nil, err
 	}
 
-	err = makeDir(containerPath)
+	err = config.MakeDir(containerPath, 0o700)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +114,9 @@ func (cgroup *CgroupContainer) WriteCgroups() error {
 	return err
 }
 
-func writePidToCgroups(pid int, path string) error {
+func (cgroup *CgroupContainer) WritePidToCgroups(pid int) error {
 	strPid := strconv.Itoa(pid)
-	err := os.WriteFile(path, []byte(strPid), 0o644)
+	err := os.WriteFile(cgroup.GroupsPath, []byte(strPid), 0o644)
 	return err
 }
 
@@ -266,16 +267,4 @@ func (cgroup *CgroupContainer) terminateProcess(timeout time.Duration) error {
 
 	err = cgroup.killCgroup()
 	return err
-}
-
-func makeDir(path string) error {
-	isPath, err := config.PathExist(path)
-	if !isPath {
-		err = config.CreateDir(path, 0o700)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

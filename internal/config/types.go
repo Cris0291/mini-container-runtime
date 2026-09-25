@@ -3,7 +3,6 @@ package config
 import "time"
 
 type ContainerConfig struct {
-	ID       string `json:"id"`
 	Hostname string `json:"hostname"`
 
 	Process ProcessConfig `json:"process_config"`

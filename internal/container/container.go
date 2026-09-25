@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"syscall"
 
 	"containerruntime/internal/config"
@@ -43,6 +44,11 @@ func NewContainer(containerID string, bundle string) (*Container, error) {
 	}
 
 	err := validateBundle(bundle)
+	if err != nil {
+		return nil, err
+	}
+
+	err = config.MakeDir(containerPath, 0o700)
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +178,25 @@ func (container *Container) MountVirtualFileSystems() error {
 }
 
 func (container *Container) validate() error {
-	if container.ContainerConfig.ID == "" {
-		return errors.New("no id was provided in the json file")
-	}
 	if container.ContainerConfig.Hostname == "" {
 		return errors.New("no hostname was provided i the json config file")
 	}
 	return nil
+}
+
+func (container *Container) CloneFlags() uintptr {
+	var flags uintptr
+	for _, namespace := range container.ContainerConfig.Namespaces {
+		if strings.TrimSpace(namespace.Path) == "" {
+			value, ok := config.NamespaceRelation[namespace.Type]
+			if ok {
+				flags |= value
+			}
+		}
+	}
+	return flags
+}
+
+func (container *Container) SetState(state config.ContainerConfig) {
+	container.ContainerConfig = state
 }
