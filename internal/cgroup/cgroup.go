@@ -58,27 +58,21 @@ func NewCgroupContainer(containerID string) (*CgroupContainer, error) {
 	containerPath := filepath.Join(cgroupPath, containerID)
 	groupsPath := filepath.Join(containerPath, "cgroup.procs")
 
-	isPath, err := config.PathExist(cgroupPath)
-	if !isPath {
-		err = config.CreateDir(cgroupPath, 0o700)
-		if err != nil {
-			return nil, err
-		}
+	err := makeDir(cgroupPath)
+	if err != nil {
+		return nil, err
 	}
 
-	isPath, err := config.PathExist(cgroupPath)
-	if !isPath {
-		err = config.CreateDir(cgroupPath, 0o700)
-		if err != nil {
-			return nil, err
-		}
+	err = makeDir(containerPath)
+	if err != nil {
+		return nil, err
 	}
 
 	c := &CgroupContainer{Path: cgroupPath, ContainerPath: containerPath, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
 	return c, nil
 }
 
-func (cgroup *CgroupContainer) normalizeCgroup(config *config.ResourceConfig) {
+func (cgroup *CgroupContainer) NormalizeCgroup(config *config.ResourceConfig) {
 	cgroup.Config = CgroupConfig{
 		MemoryLimit: MemoryDefaultMib,
 		PidLimit:    PidDefault,
@@ -97,25 +91,25 @@ func (cgroup *CgroupContainer) normalizeCgroup(config *config.ResourceConfig) {
 	cgroup.Config.CpuPeriod = period
 }
 
-func (cgroup *CgroupContainer) writeCgroups(path string) error {
+func (cgroup *CgroupContainer) WriteCgroups() error {
 	memory := "max"
 	if cgroup.Config.MemoryLimit > 0 {
 		memBytes := uint64(cgroup.Config.MemoryLimit * 1024 * 1024)
 		memory = strconv.FormatUint(memBytes, 10)
 	}
 
-	err := os.WriteFile(filepath.Join(path, "memory.max"), []byte(memory), 0o644)
+	err := os.WriteFile(filepath.Join(cgroup.ContainerPath, "memory.max"), []byte(memory), 0o644)
 	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(filepath.Join(path, "pids.max"), []byte(strconv.FormatInt(cgroup.Config.PidLimit, 10)), 0o644)
+	err = os.WriteFile(filepath.Join(cgroup.ContainerPath, "pids.max"), []byte(strconv.FormatInt(cgroup.Config.PidLimit, 10)), 0o644)
 	if err != nil {
 		return err
 	}
 
 	cpumax := fmt.Sprintf("%d %d", cgroup.Config.CpuQuota, cgroup.Config.CpuPeriod)
-	err = os.WriteFile(filepath.Join(path, "cpu.max"), []byte(cpumax), 0o644)
+	err = os.WriteFile(filepath.Join(cgroup.ContainerPath, "cpu.max"), []byte(cpumax), 0o644)
 	return err
 }
 
@@ -272,4 +266,16 @@ func (cgroup *CgroupContainer) terminateProcess(timeout time.Duration) error {
 
 	err = cgroup.killCgroup()
 	return err
+}
+
+func makeDir(path string) error {
+	isPath, err := config.PathExist(path)
+	if !isPath {
+		err = config.CreateDir(path, 0o700)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

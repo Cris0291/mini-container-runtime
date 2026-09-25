@@ -1,7 +1,6 @@
 package container
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,9 +10,11 @@ import (
 )
 
 func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, error) {
-	configJsonPath := filepath.Join(container.BundlePath, "config.json")
+	// this path should not be in the json config
+	// it should be dynamically created the mycontainer part is temporary
+	path := filepath.Join(container.BundlePath, "config.json")
 
-	jsonConfig, err := os.ReadFile(configJsonPath)
+	jsonConfig, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +34,6 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 		return nil, err
 	}
 
-	// assume that if path exist already cgroup was already written
 	if !isControl {
 		err = cgroup.WriteCgroupControl()
 		if err != nil {
@@ -41,21 +41,8 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 		}
 	}
 
-	cgroupDir := filepath.Join(cgroupPath, config.ID)
-	isPath, err = pathExist(cgroupDir)
-	if err != nil {
-		return nil, err
-	}
-
-	if !isPath {
-		err = createDir(cgroupDir, 0o700)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	cgroupConfig := normalizeCgroup(config.Resources)
-	err = writeCgroups(&cgroupConfig, cgroupDir)
+	cgroup.NormalizeCgroup(containerConfig.Resources)
+	err = cgroup.WriteCgroups()
 	if err != nil {
 		return nil, err
 	}
