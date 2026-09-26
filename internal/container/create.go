@@ -119,7 +119,7 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 
 	w.Close()
 
-	err = os.WriteFile(container.ContainerPath, data, 0o644)
+	err = os.WriteFile(container.ContainerStatePath, data, 0o644)
 	if err != nil {
 		return nil, err
 	}

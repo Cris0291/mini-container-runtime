@@ -77,8 +77,8 @@ func NewEmptyContainer() *Container {
 	return c
 }
 
-func (container *Container) SetFlock(flockHow int) (*os.File, error) {
-	fileLock, err := os.OpenFile(container.ContainerLockPath, syscall.O_RDWR, 0)
+func (container *Container) SetFlock(perm os.FileMode, flockHow int) (*os.File, error) {
+	fileLock, err := os.OpenFile(container.ContainerLockPath, syscall.O_RDWR, perm)
 	if err != nil {
 		return nil, err
 	}
