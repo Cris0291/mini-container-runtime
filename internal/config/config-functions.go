@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 )
 
@@ -33,19 +32,6 @@ var (
 	MYCONTAINER_EXECFIFO   = "_MYCONTAINER_EXECFIFO=4"
 	MYCONTAINER_CONFIGID   = "_MYCONTAINER_CONFIGID="
 )
-
-func (c *ContainerConfig) CloneFlags() uintptr {
-	var flags uintptr
-	for _, namespace := range c.Namespaces {
-		if strings.TrimSpace(namespace.Path) == "" {
-			value, ok := namespaceRelation[namespace.Type]
-			if ok {
-				flags |= value
-			}
-		}
-	}
-	return flags
-}
 
 func CreateDir(path string, perm os.FileMode) error {
 	err := os.Mkdir(path, perm)
@@ -77,21 +63,6 @@ func MakeDir(path string, perm os.FileMode) error {
 		}
 	}
 
-	return nil
-}
-
-func (config *ContainerConfig) MountVirtualFileSystems() error {
-	for _, mount := range config.Mounts {
-		path := filepath.Join(config.Rootfs, mount.Destination)
-		err := os.MkdirAll(path, 0o711)
-		if err != nil {
-			return err
-		}
-		err = syscall.Mount(mount.Source, path, mount.Type, uintptr(mount.Flags), mount.Data)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -131,7 +102,7 @@ func (config *ContainerConfig) PivotRoot() error {
 	return nil
 }
 
-func mountDev() error {
+func MountDev() error {
 	_, err := os.Stat("/dev")
 	if err != nil && errors.Is(err, os.ErrNotExist) {
 		os.Mkdir("/dev", 0o755)
@@ -151,7 +122,7 @@ func makedev(major, minor uint32) int {
 	return int((major << 8) | minor)
 }
 
-func createDevNodes() error {
+func CreateDevNodes() error {
 	for path, majmin := range globalDeviceMap {
 		err := syscall.Mknod(path, syscall.S_IFCHR|0o666, makedev(majmin[0], majmin[1]))
 		if err != nil {

@@ -69,7 +69,7 @@ func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, er
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: container.ContainerConfig.CloneFlags(), Setsid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: container.CloneFlags(), Setsid: true}
 
 	cmd.Env = append(cmd.Env, config.MYCONTAINER_CONFIGPIPE)
 

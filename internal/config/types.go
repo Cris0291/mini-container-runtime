@@ -5,6 +5,8 @@ import "time"
 type ContainerConfig struct {
 	Hostname string `json:"hostname"`
 
+	Rootfs string
+
 	Process ProcessConfig `json:"process_config"`
 	Mounts  []Mount       `json:"mounts"`
 

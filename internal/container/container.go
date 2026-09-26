@@ -22,6 +22,16 @@ const (
 
 var validMapSource = []string{"proc", "tmpfs", "sysfs", "devpts", "mqueue"}
 
+var NamespaceRelation = map[string]uintptr{
+	"pid":    syscall.CLONE_NEWPID,
+	"uts":    syscall.CLONE_NEWUTS,
+	"mount":  syscall.CLONE_NEWNS,
+	"net":    syscall.CLONE_NEWNET,
+	"ipc":    syscall.CLONE_NEWIPC,
+	"user":   syscall.CLONE_NEWUSER,
+	"cgroup": syscall.CLONE_NEWCGROUP,
+}
+
 type Container struct {
 	ContainerDirPath   string
 	ContainerPath      string
@@ -60,6 +70,11 @@ func NewContainer(containerID string, bundle string) (*Container, error) {
 	}
 
 	return c, nil
+}
+
+func NewEmptyContainer() *Container {
+	c := &Container{}
+	return c
 }
 
 func (container *Container) SetFlock(flockHow int) (*os.File, error) {
@@ -151,10 +166,8 @@ func validateID(contianerID string) bool {
 }
 
 func (container *Container) MountVirtualFileSystems() error {
-	rootfsPath := filepath.Join(container.BundlePath, "rootfs")
-
 	for _, mount := range container.ContainerConfig.Mounts {
-		path := filepath.Join(rootfsPath, mount.Destination)
+		path := filepath.Join(container.ContainerConfig.Rootfs, mount.Destination)
 		newPath, err := container.canonicalizePath(path)
 		if err != nil {
 			return err
@@ -177,6 +190,42 @@ func (container *Container) MountVirtualFileSystems() error {
 	return nil
 }
 
+func (container *Container) PivotRoot() error {
+	syscall.Mount("", "/", "", syscall.MS_REC|syscall.MS_PRIVATE, "")
+	err := syscall.Mount(container.ContainerConfig.Rootfs, container.ContainerConfig.Rootfs, "", syscall.MS_BIND|syscall.MS_REC, "")
+	if err != nil {
+		return err
+	}
+
+	pivotDir := filepath.Join(container.ContainerConfig.Rootfs, ".pivot_root")
+	err = os.MkdirAll(pivotDir, 0o711)
+	if err != nil {
+		return err
+	}
+
+	err = syscall.PivotRoot(container.ContainerConfig.Rootfs, pivotDir)
+	if err != nil {
+		return err
+	}
+
+	err = os.Chdir("/")
+	if err != nil {
+		return err
+	}
+
+	err = syscall.Unmount("/.pivot_root", syscall.MNT_DETACH)
+	if err != nil {
+		return err
+	}
+
+	err = os.Remove("/.pivot_root")
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (container *Container) validate() error {
 	if container.ContainerConfig.Hostname == "" {
 		return errors.New("no hostname was provided i the json config file")
@@ -184,19 +233,20 @@ func (container *Container) validate() error {
 	return nil
 }
 
+func (container *Container) SetState(state config.ContainerConfig) {
+	container.ContainerConfig = state
+	container.ContainerConfig.Rootfs = filepath.Join(container.BundlePath, "rootfs")
+}
+
 func (container *Container) CloneFlags() uintptr {
 	var flags uintptr
 	for _, namespace := range container.ContainerConfig.Namespaces {
 		if strings.TrimSpace(namespace.Path) == "" {
-			value, ok := config.NamespaceRelation[namespace.Type]
+			value, ok := NamespaceRelation[namespace.Type]
 			if ok {
 				flags |= value
 			}
 		}
 	}
 	return flags
-}
-
-func (container *Container) SetState(state config.ContainerConfig) {
-	container.ContainerConfig = state
 }
