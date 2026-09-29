@@ -12,6 +12,9 @@ import (
 
 func (container *Container) state() error {
 	fileLock, err := container.SetFlock(0, syscall.LOCK_SH)
+	if err != nil {
+		return err
+	}
 
 	defer fileLock.Close()
 
@@ -21,6 +24,9 @@ func (container *Container) state() error {
 	}
 
 	state, err := Unmarshal[config.ContainerState](file)
+	if err != nil {
+		return err
+	}
 
 	childPID := strconv.Itoa(state.PID)
 	_, err = os.Stat("/proc/" + childPID)

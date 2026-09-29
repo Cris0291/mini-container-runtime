@@ -1,6 +1,7 @@
 package cgroup
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"containerruntime/internal/cgroup"
 	"containerruntime/internal/config"
 )
 
@@ -246,7 +246,7 @@ func (cgroup *CgroupContainer) killCgroup() error {
 	return nil
 }
 
-func (cgroup *CgroupContainer) terminateProcess(timeout time.Duration) error {
+func (cgroup *CgroupContainer) TerminateProcess(timeout time.Duration) error {
 	err := cgroup.signalCgroups(syscall.SIGTERM)
 	if err != nil {
 		return err
@@ -267,4 +267,17 @@ func (cgroup *CgroupContainer) terminateProcess(timeout time.Duration) error {
 
 	err = cgroup.killCgroup()
 	return err
+}
+
+func (cgroup *CgroupContainer) WriteStopState(state *config.ContainerState, statePath *string) error {
+	state.Status = "stopped"
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(*statePath, data, 0o644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
