@@ -12,7 +12,7 @@ import (
 	"containerruntime/internal/config"
 )
 
-func (container *Container) create(cgroup cgroup.CgroupContainer) (*exec.Cmd, error) {
+func (container *Container) create(cgroup *cgroup.CgroupContainer) (*exec.Cmd, error) {
 	// this path should not be in the json config
 	// it should be dynamically created the mycontainer part is temporary
 	path := filepath.Join(container.BundlePath, "config.json")

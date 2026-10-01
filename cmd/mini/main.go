@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"containerruntime/internal/cgroup"
+	"containerruntime/internal/container"
 )
 
 func main() {
@@ -11,7 +14,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	var containerObject container.Container
+	var cgroupObject cgroup.CgroupContainer
+	var containerID string
+	var bundlePath string
+
 	lifeCycleCommand := os.Args[1]
+	if lifeCycleCommand == "child" {
+		containerID := os.Args[2]
+		bundlePath := os.Args[3]
+
+		containerObject, err := container.NewContainer(containerID, bundlePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "container init erro %v\n", err)
+		}
+		cgroupObject, err := cgroup.NewCgroupContainer(containerID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cgroup container init erro %v\n", err)
+		}
+	}
 
 	switch lifeCycleCommand {
 	case "create":
