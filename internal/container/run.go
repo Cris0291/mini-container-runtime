@@ -6,13 +6,13 @@ import (
 	"containerruntime/internal/cgroup"
 )
 
-func (container *Container) run(cgroup *cgroup.CgroupContainer) error {
-	cmd, err := container.create(cgroup)
+func (container *Container) Run(cgroup *cgroup.CgroupContainer) error {
+	cmd, err := container.Create(cgroup)
 	if err != nil {
 		return fmt.Errorf("there was an erro while creating the container: %w", err)
 	}
 
-	err = container.start()
+	err = container.Start()
 	if err != nil {
 		return fmt.Errorf("there was an error while starting the container: %w", err)
 	}

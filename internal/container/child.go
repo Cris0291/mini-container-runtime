@@ -35,7 +35,7 @@ func (container *Container) ChildInit() error {
 		return err
 	}
 
-	container.SetState(containerConfig)
+	container.ContainerConfig.Rootfs = containerConfig.Rootfs
 
 	err = syscall.Sethostname([]byte(containerConfig.Hostname))
 	if err != nil {

@@ -12,7 +12,7 @@ import (
 	"containerruntime/internal/config"
 )
 
-func (container *Container) create(cgroup *cgroup.CgroupContainer) (*exec.Cmd, error) {
+func (container *Container) Create(cgroup *cgroup.CgroupContainer) (*exec.Cmd, error) {
 	// this path should not be in the json config
 	// it should be dynamically created the mycontainer part is temporary
 	path := filepath.Join(container.BundlePath, "config.json")
@@ -71,14 +71,14 @@ func (container *Container) create(cgroup *cgroup.CgroupContainer) (*exec.Cmd, e
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: container.CloneFlags(), Setsid: true}
 
-	cmd.Env = append(cmd.Env, config.MYCONTAINER_CONFIGPIPE)
+	cmd.Env = append(cmd.Env, config._MYCONTAINER_CONFIGPIPE)
 
 	err = syscall.Mkfifo(container.ContainerFifoPath, 0o622)
 	if err != nil {
 		return nil, err
 	}
 
-	cmd.Env = append(cmd.Env, config.MYCONTAINER_CONFIGID+container.ContainerID)
+	cmd.Env = append(cmd.Env, config._MYCONTAINER_CONFIGID+container.ContainerID)
 
 	cmd.Env = append(cmd.Env, config.MYCONTAINER_EXECFIFO)
 

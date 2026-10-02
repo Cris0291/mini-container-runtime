@@ -11,7 +11,7 @@ import (
 	"containerruntime/internal/config"
 )
 
-func (container *Container) stop(cgroup *cgroup.CgroupContainer) error {
+func (container *Container) Stop(cgroup *cgroup.CgroupContainer) error {
 	fileLock, err := container.SetFlock(0, syscall.LOCK_EX)
 	if err != nil {
 		return err

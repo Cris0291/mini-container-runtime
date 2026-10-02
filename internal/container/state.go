@@ -10,7 +10,7 @@ import (
 	"containerruntime/internal/config"
 )
 
-func (container *Container) state() error {
+func (container *Container) State() error {
 	fileLock, err := container.SetFlock(0, syscall.LOCK_SH)
 	if err != nil {
 		return err
