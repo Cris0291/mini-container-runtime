@@ -64,11 +64,6 @@ func NewCgroupContainer(containerID string) (*CgroupContainer, error) {
 		return nil, err
 	}
 
-	err = config.MakeDir(containerPath, 0o700)
-	if err != nil {
-		return nil, err
-	}
-
 	c := &CgroupContainer{Path: cgroupPath, ContainerPath: containerPath, SubControlPath: subcontrolPath, GroupsPath: groupsPath}
 	return c, nil
 }

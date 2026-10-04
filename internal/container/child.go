@@ -13,7 +13,7 @@ import (
 )
 
 func (container *Container) ChildInit() error {
-	containerID := os.Getenv("MYCONTAINER_CONFIGID")
+	containerID := os.Getenv("_MYCONTAINER_CONFIGID")
 	containerPath := filepath.Join("/run/mycontainer", containerID)
 	execFifoPath := filepath.Join(containerPath, "exec.fifo")
 	envFileDescriptor := os.Getenv("_MYCONTAINER_CONFIGPIPE")

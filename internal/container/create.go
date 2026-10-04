@@ -46,6 +46,11 @@ func (container *Container) Create(cgroup *cgroup.CgroupContainer) (*exec.Cmd, e
 		}
 	}
 
+	err = config.MakeDir(cgroup.ContainerPath, 0o700)
+	if err != nil {
+		return nil, err
+	}
+
 	cgroup.NormalizeCgroup(containerConfig.Resources)
 	err = cgroup.WriteCgroups()
 	if err != nil {
@@ -71,14 +76,14 @@ func (container *Container) Create(cgroup *cgroup.CgroupContainer) (*exec.Cmd, e
 	cmd.ExtraFiles = append(cmd.ExtraFiles, r)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: container.CloneFlags(), Setsid: true}
 
-	cmd.Env = append(cmd.Env, config._MYCONTAINER_CONFIGPIPE)
+	cmd.Env = append(cmd.Env, config.MYCONTAINER_CONFIGPIPE)
 
 	err = syscall.Mkfifo(container.ContainerFifoPath, 0o622)
 	if err != nil {
 		return nil, err
 	}
 
-	cmd.Env = append(cmd.Env, config._MYCONTAINER_CONFIGID+container.ContainerID)
+	cmd.Env = append(cmd.Env, config.MYCONTAINER_CONFIGID+container.ContainerID)
 
 	cmd.Env = append(cmd.Env, config.MYCONTAINER_EXECFIFO)
 
