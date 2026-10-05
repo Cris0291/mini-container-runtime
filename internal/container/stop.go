@@ -41,7 +41,7 @@ func (container *Container) Stop(cgroup *cgroup.CgroupContainer) error {
 			panic("process could not be killed os has failed us")
 		}
 	}
-	err = cgroup.WriteStopState(&state, &container.ContainerStatePath)
+	err = container.WriteStopState(&state, &container.ContainerStatePath)
 	// here is the problem if i return the error here it means that the process is dead
 	// but i could not write the state so the semantics are weird operation was successful but the result is missleading
 	if err != nil {

@@ -28,10 +28,12 @@ func main() {
 		containerObject, err = container.NewContainer(containerID, bundlePath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "container init erro %v\n", err)
+			return
 		}
 		cgroupObject, err = cgroup.NewCgroupContainer(containerID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "cgroup container init erro %v\n", err)
+			return
 		}
 	} else {
 		containerObject = container.NewEmptyContainer()
@@ -48,6 +50,7 @@ func main() {
 		err := containerObject.Run(cgroupObject)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "run error %v\n", err)
+			return
 		}
 	case "start":
 		err := containerObject.Start()
@@ -65,16 +68,19 @@ func main() {
 		err := containerObject.Delete(cgroupObject)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "delete error %v\n", err)
+			return
 		}
 	case "stop":
 		err := containerObject.Stop(cgroupObject)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "stop error %v\n", err)
+			return
 		}
 	case "state":
 		err := containerObject.State()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "state error %v\n", err)
+			return
 		}
 	}
 }

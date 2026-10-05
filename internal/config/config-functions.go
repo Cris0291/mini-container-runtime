@@ -4,19 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"syscall"
 )
-
-var NamespaceRelation = map[string]uintptr{
-	"pid":    syscall.CLONE_NEWPID,
-	"uts":    syscall.CLONE_NEWUTS,
-	"mount":  syscall.CLONE_NEWNS,
-	"net":    syscall.CLONE_NEWNET,
-	"ipc":    syscall.CLONE_NEWIPC,
-	"user":   syscall.CLONE_NEWUSER,
-	"cgroup": syscall.CLONE_NEWCGROUP,
-}
 
 var globalDeviceMap = map[string][2]uint32{
 	"/dev/null":    {1, 3},
@@ -56,47 +45,14 @@ func PathExist(path string) (bool, error) {
 
 func MakeDir(path string, perm os.FileMode) error {
 	isPath, err := PathExist(path)
+	if err != nil {
+		return err
+	}
 	if !isPath {
 		err = CreateDir(path, perm)
 		if err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (config *ContainerConfig) PivotRoot() error {
-	syscall.Mount("", "/", "", syscall.MS_REC|syscall.MS_PRIVATE, "")
-	err := syscall.Mount(config.Rootfs, config.Rootfs, "", syscall.MS_BIND|syscall.MS_REC, "")
-	if err != nil {
-		return err
-	}
-
-	pivotDir := filepath.Join(config.Rootfs, ".pivot_root")
-	err = os.MkdirAll(pivotDir, 0o711)
-	if err != nil {
-		return err
-	}
-
-	err = syscall.PivotRoot(config.Rootfs, pivotDir)
-	if err != nil {
-		return err
-	}
-
-	err = os.Chdir("/")
-	if err != nil {
-		return err
-	}
-
-	err = syscall.Unmount("/.pivot_root", syscall.MNT_DETACH)
-	if err != nil {
-		return err
-	}
-
-	err = os.Remove("/.pivot_root")
-	if err != nil {
-		return err
 	}
 
 	return nil

@@ -168,20 +168,22 @@ func validateID(contianerID string) bool {
 func (container *Container) MountVirtualFileSystems() error {
 	for _, mount := range container.ContainerConfig.Mounts {
 		path := filepath.Join(container.ContainerConfig.Rootfs, mount.Destination)
-		newPath, err := container.canonicalizePath(path)
-		if err != nil {
-			return err
-		}
 
 		// for now bind type is nto allowed
 		if !slices.Contains(validMapSource, mount.Type) {
 			return errors.New("invalid mount type")
 		}
 
-		err = os.MkdirAll(path, 0o711)
+		err := os.MkdirAll(path, 0o711)
 		if err != nil {
 			return err
 		}
+
+		newPath, err := container.canonicalizePath(path)
+		if err != nil {
+			return err
+		}
+
 		err = syscall.Mount(mount.Source, newPath, mount.Type, uintptr(mount.Flags), mount.Data)
 		if err != nil {
 			return err
@@ -249,4 +251,17 @@ func (container *Container) CloneFlags() uintptr {
 		}
 	}
 	return flags
+}
+
+func (container *Container) WriteStopState(state *config.ContainerState, statePath *string) error {
+	state.Status = "stopped"
+	data, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	err = os.WriteFile(container.ContainerStatePath, data, 0o644)
+	if err != nil {
+		return err
+	}
+	return nil
 }

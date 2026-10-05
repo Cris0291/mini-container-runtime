@@ -58,10 +58,3 @@ type ContainerState struct {
 	Created time.Time       `json:"created"`
 	Config  ContainerConfig `json:"container_config"`
 }
-
-type CgroupConfig struct {
-	MemoryLimit int64
-	PidLimit    int64
-	CpuQuota    int64
-	CpuPeriod   int64
-}

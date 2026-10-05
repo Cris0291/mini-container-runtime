@@ -1,7 +1,6 @@
 package cgroup
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -262,17 +261,4 @@ func (cgroup *CgroupContainer) TerminateProcess(timeout time.Duration) error {
 
 	err = cgroup.killCgroup()
 	return err
-}
-
-func (cgroup *CgroupContainer) WriteStopState(state *config.ContainerState, statePath *string) error {
-	state.Status = "stopped"
-	data, err := json.Marshal(state)
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(*statePath, data, 0o644)
-	if err != nil {
-		return err
-	}
-	return nil
 }
