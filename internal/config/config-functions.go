@@ -23,7 +23,7 @@ var (
 )
 
 func CreateDir(path string, perm os.FileMode) error {
-	err := os.Mkdir(path, perm)
+	err := os.MkdirAll(path, perm)
 	if err != nil {
 		return err
 	}

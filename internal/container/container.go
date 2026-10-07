@@ -184,6 +184,15 @@ func (container *Container) MountVirtualFileSystems() error {
 			return err
 		}
 
+		rel, err := filepath.Rel(container.ContainerConfig.Rootfs, newPath)
+		if err != nil {
+			return err
+		}
+
+		if rel == "." || strings.HasPrefix(rel, "..") {
+			return errors.New("mount destination is outside rootfs")
+		}
+
 		err = syscall.Mount(mount.Source, newPath, mount.Type, uintptr(mount.Flags), mount.Data)
 		if err != nil {
 			return err
