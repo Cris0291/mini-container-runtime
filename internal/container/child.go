@@ -35,7 +35,7 @@ func (container *Container) ChildInit() error {
 		return err
 	}
 
-	container.ContainerConfig.Rootfs = containerConfig.Rootfs
+	container.ContainerConfig = containerConfig
 
 	err = syscall.Sethostname([]byte(containerConfig.Hostname))
 	if err != nil {
@@ -87,7 +87,7 @@ func (container *Container) ChildInit() error {
 
 	err = syscall.Exec(path, container.ContainerConfig.Process.Args, container.ContainerConfig.Process.Env)
 	if err != nil {
-		panic("something terribly wrong happened")
+		panic(fmt.Sprintf("exec failed: %v", err))
 	}
 
 	return nil
